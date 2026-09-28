@@ -1,0 +1,1071 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLI LAN Poker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%E2%99%A0%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fdfcf8;
+    --graphite: #2d2d2d;
+    --graphite-soft: #5c5c5c;
+    --faint: #a3a3a3;
+    --red-pencil: #c23b30;
+    --blue-pencil: #2f5f9e;
+    --highlight: rgba(255, 226, 77, 0.6);
+    --rule: rgba(47, 95, 158, 0.18);
+    --felt: #3f9c62;
+    --felt-dark: #2c7a4a;
+    --rail: #b9824f;
+    --fold: #f28b82;
+    --call: #8fd19e;
+    --raise: #8ab4f8;
+    --chip-red: #e2453c;
+    --chip-blue: #3f7fd9;
+    --card-red: #d1202f;
+    --card-black: #1b1b1f;
+    --hand: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --slate: #273142;
+    --slate-2: #1f2733;
+    --slate-line: #3b475a;
+    --slate-text: #e8edf4;
+    --slate-muted: #9fb0c6;
+    --title: "Caveat", "Patrick Hand", cursive;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background-color: #7a1020;
+    color: var(--slate-text);
+    font: 16px/1.4 var(--hand);
+    /* Exactly one screen: header on top, table + history fill the rest. Nothing scrolls but the log. */
+    height: 100vh; height: 100dvh; overflow: hidden;
+    display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  footer {
+    text-align: center; font-size: 12px; color: #f3f4f6; padding: 0 16px 6px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  }
+  footer a { color: #fde68a; white-space: nowrap; }
+  .defs { position: absolute; width: 0; height: 0; }
+  /* The casino floor behind everything. */
+  .casino { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+
+  /* ── Header ─────────────────────────── */
+  header {
+    display: flex; gap: 4px 18px; align-items: baseline; flex-wrap: wrap; padding: 10px 24px 2px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.6);
+  }
+  header { align-items: center; }
+  header h1 { margin: 0; line-height: 0; }
+  .logo { height: 76px; width: auto; overflow: visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+  .logo .bulb { fill: #ffe066; stroke: #b8860b; stroke-width: .6; }
+  .logo .bulb:nth-child(odd) { animation: twinkle 1.1s steps(1) infinite; }
+  .logo .bulb:nth-child(even) { animation: twinkle 1.1s steps(1) infinite .55s; }
+  @keyframes twinkle { 50% { fill: #fff6c9; } }
+  header .meta { color: #fff; }
+  header .status { margin-left: auto; color: #e5e7eb; font-size: 14px; }
+  header .status.off { color: #fca5a5; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 20px; padding: 4px 24px 6px; min-height: 0; }
+  section { display: flex; flex-direction: column; min-height: 0; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px; padding: 2px 12px 6px; }
+    footer { font-size: 11px; padding-bottom: 4px; }
+    header { padding: 8px 16px 2px; }
+    .logo { height: 56px; }
+    header .meta, header .status { font-size: 14px; }
+  }
+
+  /* ── Table (flat, top-down) ─────────── */
+  /* The stage takes whatever height is left; the table is the largest oval that fits in it,
+     leaving room around the edge for seats that sit on the rail. */
+  .stage { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
+  .table-wrap {
+    position: relative; aspect-ratio: 5 / 3;
+    width: max(200px, min(1100px, calc(100cqw - 200px), calc((100cqh - 160px) * 5 / 3)));
+  }
+  @media (max-width: 640px) {
+    .table-wrap { aspect-ratio: 4 / 5; width: max(160px, min(calc(100cqw - 104px), calc((100cqh - 130px) * 4 / 5))); }
+  }
+  .table-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .center {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px; width: 64%;
+  }
+  @media (max-width: 640px) { .center { width: 84%; } }
+  .board { display: flex; gap: 6px; }
+  .slot { width: 60px; height: 84px; border: 1.5px dashed rgba(255,255,255,.85); border-radius: 6px; }
+  .pot { font-size: 18px; background: var(--slate); color: var(--slate-text); padding: 3px 14px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  .pot b { color: #fbbf24; }
+  .pot.bump { animation: bump .35s ease; }
+  .banner {
+    font-size: 16px; font-weight: 600; text-align: center; padding: 4px 12px; max-width: 100%;
+    background: #fbbf24; color: #1f1400; border-radius: 8px; animation: fadeIn .4s ease both;
+  }
+
+  /* ── Cards: regular playing cards ── */
+  .card {
+    position: relative; width: 60px; height: 84px; flex: none;
+    background: #fff; color: var(--card-black);
+    border: 1px solid #cfcfcf; border-radius: 7px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.12);
+    font-family: Georgia, "Times New Roman", serif; font-weight: 700;
+    animation: deal .35s ease both;
+  }
+  .card .idx { position: absolute; left: 5px; top: 4px; display: flex; flex-direction: column; align-items: center; line-height: .95; font-size: 19px; }
+  .card .idx i { font-style: normal; font-size: 15px; }
+  .card .pip { position: absolute; right: 6px; bottom: 4px; font-size: 34px; line-height: 1; }
+  .card.red { color: var(--card-red); }
+  .card.back {
+    border: 3px solid #fff; outline: 1px solid #cfcfcf;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,.22) 0 2px, transparent 2px 7px),
+      #2156a8;
+  }
+  .card.small { width: 48px; height: 67px; }
+  .card.small .idx { font-size: 16px; left: 4px; }
+  .card.small .idx i { font-size: 12px; }
+  .card.small .pip { font-size: 25px; right: 4px; }
+  @media (max-width: 640px) {
+    .board { gap: 4px; }
+    .card, .slot { width: 40px; height: 56px; }
+    .card .idx { font-size: 14px; left: 3px; top: 2px; } .card .idx i { font-size: 11px; }
+    .card .pip { font-size: 21px; right: 3px; bottom: 2px; }
+    .card.small { width: 36px; height: 50px; }
+    .card.small .idx { font-size: 13px; } .card.small .idx i { font-size: 10px; } .card.small .pip { font-size: 17px; }
+  }
+
+  /* ── Seats ───────────────────────────── */
+  .seat {
+    position: absolute; transform: translate(-50%, -50%); width: 170px;
+    display: flex; flex-direction: column; align-items: center; transition: opacity .3s;
+  }
+  .seat .cards { display: flex; gap: 2px; height: 67px; margin-bottom: -12px; z-index: 1; }
+  .seat .plate {
+    width: 100%; padding: 13px 8px 7px; text-align: center;
+    background: var(--slate); color: var(--slate-text);
+    border: 1px solid var(--slate-line); border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.35);
+    transition: background .2s, box-shadow .2s, border-color .2s;
+  }
+  .seat .plate { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; }
+  .seat .avatar svg { width: 46px; height: 46px; display: block; border-radius: 50%; box-shadow: 0 0 0 2px var(--slate-line); }
+  .seat.folded .avatar, .seat.out .avatar { filter: grayscale(1); opacity: .55; }
+  .seat .name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seat .chips { font-size: 15px; font-weight: 600; color: #fbbf24; }
+  .seat .note { font-size: 13px; color: var(--slate-muted); min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seat .note.allin { color: #f87171; font-weight: 600; }
+  .seat .hand { font-size: 13px; color: #fde68a; }
+  .seat.you .plate { border-color: #64748b; }
+  .seat.turn .plate { background: #1e3a5f; border-color: #60a5fa; box-shadow: 0 0 0 2px #60a5fa, 0 0 18px rgba(96,165,250,.55); }
+  .seat.turn { animation: bob 1.6s ease-in-out infinite; }
+  .seat.folded .plate, .seat.out .plate { background: var(--slate-2); color: #6b7a8f; }
+  .seat.folded .plate .chips, .seat.folded .plate .note, .seat.out .plate .chips, .seat.out .plate .note { color: #6b7a8f; }
+  .seat.winner .plate { background: #3d3108; border-color: #fbbf24; box-shadow: 0 0 0 2px #fbbf24, 0 0 22px rgba(251,191,36,.6); }
+  .seat.offline .name::after { content: " (away)"; color: #f87171; font-size: 12px; font-weight: 400; }
+  .seat .badge {
+    position: absolute; left: -8px; bottom: 34px; width: 26px; height: 26px; border-radius: 50%;
+    border: 2px solid #1f2733; background: #fff; color: #111; font-size: 12px; font-weight: 700;
+    display: grid; place-items: center; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+  .timer { height: 3px; background: var(--chip-blue); margin: 4px auto 0; transition: width .5s linear; border-radius: 2px; }
+  @media (max-width: 640px) {
+    .seat { width: 104px; font-size: 15px; }
+    .seat .plate { grid-template-columns: 28px minmax(0, 1fr); gap: 5px; padding: 11px 6px 5px; }
+    .seat .avatar svg { width: 28px; height: 28px; }
+    .seat .cards { height: 50px; margin-bottom: -9px; }
+    .seat .plate { padding: 9px 4px 4px; }
+    .seat .name { font-size: 13px; }
+    .seat .chips { font-size: 13px; }
+    .seat .note { font-size: 11px; }
+  }
+
+  /* Bets sit on the felt between each seat and the pot. */
+  .bet {
+    position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 5px;
+    font-size: 16px; animation: pop .25s ease; white-space: nowrap;
+  }
+  .bet { font-size: 14px; font-weight: 600; }
+  .bet .amt { background: var(--slate); color: #fbbf24; padding: 1px 8px; border-radius: 999px; }
+  .chip { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--graphite); background: var(--chip-red); position: relative; }
+  .chip::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; border: 1.5px dashed #fff; }
+
+  /* ── Controls: only Fold / Call / Raise ─ */
+  .controls {
+    flex: none; display: flex; gap: 10px 20px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    width: 100%; max-width: 1100px; margin: 0 auto; padding: 10px 14px;
+    background: var(--slate); border: 1px solid var(--slate-line); border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  }
+  .hint { color: var(--slate-muted); min-height: 22px; }
+  .hint b { color: #93c5fd; }
+  .right { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 16px; margin-left: auto; }
+  .raise-row { display: flex; align-items: center; gap: 10px; }
+  .raise-row[hidden] { display: none; }
+  .raise-row input[type=range] { width: 190px; accent-color: var(--chip-blue); }
+  .raise-row input[type=number] {
+    width: 96px; font: inherit; color: inherit; background: transparent; text-align: center;
+    border: 1px solid var(--slate-line); border-radius: 8px; padding: 6px 4px; background: var(--slate-2);
+  }
+  .buttons { display: flex; gap: 10px; }
+  /* Buttons are ordinary flat buttons, not pencil drawings. */
+  button {
+    font: 600 17px/1.1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #fff; background: #4b5563; border: none; border-radius: 10px;
+    padding: 10px 20px; min-width: 110px; cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0,0,0,.2); transition: transform .08s, filter .15s;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.1); }
+  button:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+  button:disabled { background: #3a4556; color: #7c8899; box-shadow: none; cursor: default; }
+  button#fold:not(:disabled) { background: #d64541; }
+  button#call:not(:disabled), .dialog #start:not(:disabled) { background: #2e9d5b; }
+  button#raise:not(:disabled) { background: #2f6fd1; }
+  button small { display: block; font-size: 13px; font-weight: 500; margin-top: 3px; opacity: .85; }
+  @media (max-width: 640px) {
+    .controls { padding: 8px 10px; }
+    .right, .raise-row, .buttons { width: 100%; }
+    .buttons button { flex: 1; min-width: 0; padding: 10px 6px; font-size: 16px; }
+    .raise-row input[type=range] { flex: 1; width: auto; }
+  }
+
+  /* ── Hand history on a slate panel ──── */
+  aside {
+    display: flex; flex-direction: column; min-height: 0; padding: 14px 16px;
+    background: var(--slate); border: 1px solid var(--slate-line); border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  }
+  aside h2 { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate-muted); margin: 0 0 10px; }
+  .log { flex: 1; min-height: 0; overflow-y: auto; font-size: 14px; line-height: 1.6; }
+  .log div { animation: fadeIn .3s ease; }
+  .log .sep { color: #fbbf24; margin-top: 6px; }
+  @media (max-width: 900px) {
+    aside { height: 92px; padding: 8px 12px; }
+    aside h2 { display: none; }
+    .log { font-size: 13px; line-height: 1.5; }
+  }
+
+  /* ── Dialogs & notes ─────────────────── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,.6); display: grid; place-items: center;
+    padding: 16px; animation: fadeIn .25s ease; z-index: 10;
+  }
+  .overlay[hidden] { display: none; }
+  .dialog {
+    background: var(--slate); color: var(--slate-text); padding: 24px 26px; width: min(470px, 100%);
+    border: 1px solid var(--slate-line); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .dialog h2 { font-size: 22px; margin: 0 0 6px; }
+  .dialog p { color: var(--slate-muted); margin: 0 0 14px; }
+  .dialog ul { list-style: none; padding: 0; margin: 0 0 18px; }
+  .dialog li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 2px; border-bottom: 1px solid var(--slate-line); }
+  .dialog li .tag { color: var(--slate-muted); font-size: 14px; }
+  .dialog .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dialog .row button { font-size: 15px; min-width: 0; padding: 9px 14px; }
+  .addr { background: #fbbf24; color: #1f1400; padding: 0 5px; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 14px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: #b91c1c; color: #fff; padding: 12px 20px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.4);
+    animation: slideUp .25s ease; z-index: 20; max-width: calc(100% - 32px);
+  }
+
+  /* ── Your turn: impossible to miss ──── */
+  body.my-turn::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    box-shadow: inset 0 0 0 4px rgba(251,191,36,.95), inset 0 0 70px rgba(251,191,36,.5);
+    animation: edgePulse 1.3s ease-in-out infinite;
+  }
+  .controls.my-turn {
+    border: 2px solid #fbbf24; background: #3a2f0e;
+    animation: ctrlPulse 1.3s ease-in-out infinite;
+  }
+  .controls.my-turn .hint { color: #fde68a; font-size: 24px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .controls.my-turn .hint b { color: #fbbf24; }
+  .seat.you.turn .plate { background: #3d3108; border-color: #fbbf24; box-shadow: 0 0 0 3px #fbbf24, 0 0 28px rgba(251,191,36,.8); }
+  .turn-callout {
+    position: fixed; left: 50%; top: 42%; z-index: 30; pointer-events: none;
+    font: 900 clamp(40px, 9vw, 96px)/1 system-ui, sans-serif; letter-spacing: .06em; color: #fde68a;
+    text-shadow: 0 0 24px rgba(251,191,36,.9), 0 4px 0 #7c2d12, 0 8px 24px rgba(0,0,0,.8);
+    animation: callout 1.6s ease both; white-space: nowrap;
+  }
+  @keyframes callout {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+    18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    30% { transform: translate(-50%, -50%) scale(1); }
+    78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(.96); }
+  }
+  @keyframes edgePulse { 50% { box-shadow: inset 0 0 0 4px rgba(251,191,36,.5), inset 0 0 30px rgba(251,191,36,.2); } }
+  @keyframes ctrlPulse { 50% { box-shadow: 0 0 0 4px rgba(251,191,36,.35), 0 0 30px rgba(251,191,36,.45); } }
+  @keyframes deal { from { opacity: 0; transform: translateY(-12px) rotate(-8deg); } to { opacity: 1; transform: none; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+  @keyframes bump { 50% { transform: scale(1.12) rotate(-2deg); } }
+  @keyframes bob { 50% { transform: translate(-50%, calc(-50% - 4px)); } }
+  @keyframes highlight { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+  @keyframes slideUp { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- The casino from above: our poker room in the middle, with the slots room, blackjack room and
+     bar visible through the doorways. People (photo faces on drawn bodies) are placed by drawCrowd(). -->
+<svg class="casino" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <!-- Poker room: ornate red casino carpet -->
+    <pattern id="carpetRich" width="96" height="96" patternUnits="userSpaceOnUse">
+      <rect width="96" height="96" fill="#760d1c"/>
+      <g fill="#1e2a5a" stroke="#d4a441" stroke-width="1.5">
+        <circle r="15"/><circle cx="96" r="15"/><circle cy="96" r="15"/><circle cx="96" cy="96" r="15"/>
+      </g>
+      <g fill="#e3b04b"><circle r="4"/><circle cx="96" r="4"/><circle cy="96" r="4"/><circle cx="96" cy="96" r="4"/></g>
+      <circle cx="48" cy="48" r="30" fill="#8f1628" stroke="#d4a441" stroke-width="2"/>
+      <circle cx="48" cy="48" r="21" fill="none" stroke="#1e2a5a" stroke-width="3"/>
+      <path d="M48 28 L54 48 L48 68 L42 48 Z M28 48 L48 42 L68 48 L48 54 Z" fill="#e3b04b"/>
+      <circle cx="48" cy="48" r="4.5" fill="#1e2a5a"/>
+      <path d="M22 8 Q48 20 74 8 M22 88 Q48 76 74 88 M8 22 Q20 48 8 74 M88 22 Q76 48 88 74" fill="none" stroke="#b8323f" stroke-width="2"/>
+      <g fill="#d4a441"><circle cx="48" cy="10" r="2.2"/><circle cx="48" cy="86" r="2.2"/><circle cx="10" cy="48" r="2.2"/><circle cx="86" cy="48" r="2.2"/></g>
+    </pattern>
+    <!-- Slots room: dark carpet with neon confetti -->
+    <pattern id="carpetSlots" width="70" height="70" patternUnits="userSpaceOnUse">
+      <rect width="70" height="70" fill="#1d1440"/>
+      <circle cx="12" cy="14" r="4" fill="#f472b6"/><circle cx="50" cy="22" r="3" fill="#22d3ee"/>
+      <circle cx="30" cy="52" r="3.5" fill="#fbbf24"/><circle cx="60" cy="58" r="2.5" fill="#a3e635"/>
+      <path d="M35 8 l3 7 7 1 -5 5 1 7 -6 -3 -6 3 1 -7 -5 -5 7 -1 z" fill="#c084fc" opacity=".8"/>
+    </pattern>
+    <!-- Blackjack room: deep teal with gold diamonds -->
+    <pattern id="carpetTeal" width="48" height="48" patternUnits="userSpaceOnUse">
+      <rect width="48" height="48" fill="#0e3b3c"/>
+      <path d="M24 6 L42 24 L24 42 L6 24 Z" fill="#11494a" stroke="#c9a14a" stroke-width="1" opacity=".9"/>
+      <circle cx="24" cy="24" r="2.5" fill="#c9a14a"/>
+    </pattern>
+    <!-- Bar and lounge: wood planks -->
+    <pattern id="planks" width="160" height="26" patternUnits="userSpaceOnUse">
+      <rect width="160" height="26" fill="#6b4226"/>
+      <rect y="13" width="160" height="13" fill="#62391f"/>
+      <path d="M0 13 H160 M0 26 H160 M60 0 V13 M130 13 V26" stroke="#3f2414" stroke-width="1.2"/>
+    </pattern>
+    <!-- Lobby: marble checkerboard -->
+    <pattern id="marble" width="60" height="60" patternUnits="userSpaceOnUse">
+      <rect width="60" height="60" fill="#e8e4dc"/><rect width="30" height="30" fill="#2a2a2e"/><rect x="30" y="30" width="30" height="30" fill="#2a2a2e"/>
+    </pattern>
+    <linearGradient id="slotScreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0abfc"/><stop offset=".5" stop-color="#fde68a"/><stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+    <radialGradient id="slotGlow"><stop offset="0" stop-color="#d946ef" stop-opacity=".6"/><stop offset="1" stop-color="#d946ef" stop-opacity="0"/></radialGradient>
+    <radialGradient id="lamp"><stop offset="0" stop-color="#ffd98a" stop-opacity=".5"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="darkness" cx="45%" cy="52%" r="62%">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset=".42" stop-color="#000" stop-opacity=".3"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".68"/>
+    </radialGradient>
+
+    <symbol id="slot-top" viewBox="0 0 130 80">
+      <ellipse cx="46" cy="40" rx="54" ry="44" fill="url(#slotGlow)"/>
+      <rect x="4" y="5" width="80" height="70" rx="8" fill="#3b0f6e"/>
+      <rect x="9" y="10" width="70" height="60" rx="6" fill="#7c3aed"/>
+      <rect x="16" y="16" width="36" height="48" rx="5" fill="#5b21b6"/>
+      <circle cx="34" cy="40" r="10" fill="#f5d0fe"/><circle cx="34" cy="40" r="5" fill="#e879f9"/>
+      <rect x="58" y="14" width="16" height="52" rx="3" fill="url(#slotScreen)"/>
+      <rect x="84" y="33" width="9" height="14" rx="2" fill="#c4b5fd"/>
+      <circle cx="112" cy="40" r="14" fill="#1c1917"/><circle cx="112" cy="40" r="10" fill="#b91c1c"/>
+    </symbol>
+    <symbol id="blackjack" viewBox="-28 -14 356 210">
+      <path d="M0 8 A150 150 0 0 0 300 8 Z" fill="#5b3419"/>
+      <path d="M14 10 A136 136 0 0 0 286 10 Z" fill="#177245"/>
+      <path d="M44 12 A106 106 0 0 0 256 12" fill="none" stroke="#e7c35a" stroke-width="1.5" opacity=".7"/>
+      <rect x="112" y="12" width="76" height="16" rx="3" fill="#1c1917"/>
+      <g><rect x="117" y="15" width="10" height="10" fill="#dc2626"/><rect x="130" y="15" width="10" height="10" fill="#2563eb"/>
+        <rect x="143" y="15" width="10" height="10" fill="#16a34a"/><rect x="156" y="15" width="10" height="10" fill="#f5f5f4"/><rect x="169" y="15" width="10" height="10" fill="#111"/></g>
+      <g fill="none" stroke="#fff" stroke-width="1.5" opacity=".75">
+        <circle cx="236.6" cy="58" r="10"/><circle cx="200" cy="94.6" r="10"/><circle cx="150" cy="108" r="10"/>
+        <circle cx="100" cy="94.6" r="10"/><circle cx="63.4" cy="58" r="10"/>
+      </g>
+      <g fill="#1c1917"><circle cx="309.7" cy="66.1" r="15"/><circle cx="247.5" cy="147.3" r="15"/><circle cx="150" cy="178" r="15"/>
+        <circle cx="52.5" cy="147.3" r="15"/><circle cx="-9.7" cy="66.1" r="15"/></g>
+      <g fill="#b91c1c"><circle cx="309.7" cy="66.1" r="10"/><circle cx="247.5" cy="147.3" r="10"/><circle cx="150" cy="178" r="10"/>
+        <circle cx="52.5" cy="147.3" r="10"/><circle cx="-9.7" cy="66.1" r="10"/></g>
+    </symbol>
+    <symbol id="palm" viewBox="-50 -50 100 100">
+      <g fill="#2f855a"><ellipse rx="44" ry="10"/><ellipse rx="44" ry="10" transform="rotate(45)"/>
+        <ellipse rx="44" ry="10" transform="rotate(90)"/><ellipse rx="44" ry="10" transform="rotate(135)"/></g>
+      <g fill="#48bb78"><ellipse rx="34" ry="8" transform="rotate(22)"/><ellipse rx="34" ry="8" transform="rotate(67)"/>
+        <ellipse rx="34" ry="8" transform="rotate(112)"/><ellipse rx="34" ry="8" transform="rotate(157)"/></g>
+      <circle r="11" fill="#8b5a2b" stroke="#6b3f1d" stroke-width="3"/>
+    </symbol>
+    <symbol id="cocktail-table" viewBox="-30 -30 60 60">
+      <circle r="26" fill="#2a1a12"/><circle r="22" fill="#4a2e1c"/>
+      <circle cx="-8" cy="-5" r="5" fill="#fef3c7" stroke="#b45309"/><circle cx="7" cy="4" r="5" fill="#fecaca" stroke="#b91c1c"/>
+    </symbol>
+
+    <!-- Drawn bodies (front view), neck at the top centre; the face photo sits on top.
+         Colours come from --c1 / --c2 / --tie / --skin set on each person. -->
+    <symbol id="b-casual" viewBox="0 0 60 150">
+      <path d="M18 92 L16 142 H27 L30 102 L33 142 H44 L42 92 Z" fill="var(--c2, #2b4c7e)"/>
+      <path d="M13 142 h15 v6 h-17 z M32 142 h15 v6 h-15 z" fill="#1c1917"/>
+      <rect x="25" y="24" width="10" height="14" fill="var(--skin)"/>
+      <path d="M10 68 L7 100 Q9 105 13 100 L16 70 Z M50 68 L53 100 Q51 105 47 100 L44 70 Z" fill="var(--skin)"/>
+      <path d="M9 42 Q30 30 51 42 L51 70 L44 70 L43 96 H17 L16 70 L9 70 Z" fill="var(--c1, #c0392b)"/>
+    </symbol>
+    <symbol id="b-dress" viewBox="0 0 60 150">
+      <path d="M22 112 L21 142 H27 L28 112 Z M32 112 L33 142 H39 L38 112 Z" fill="var(--skin)"/>
+      <path d="M18 142 h11 v5 h-12 z M31 142 h11 v5 h-11 z" fill="#1c1917"/>
+      <rect x="25" y="24" width="10" height="16" fill="var(--skin)"/>
+      <path d="M16 40 Q9 43 9 60 L7 94 Q9 98 12 94 L16 62 Z M44 40 Q51 43 51 60 L53 94 Q51 98 48 94 L44 62 Z" fill="var(--skin)"/>
+      <path d="M17 40 Q30 35 43 40 L44 64 L53 118 H7 L16 64 Z" fill="var(--c1, #7c3aed)"/>
+    </symbol>
+    <symbol id="b-suit" viewBox="0 0 60 150">
+      <path d="M18 92 L16 142 H27 L30 102 L33 142 H44 L42 92 Z" fill="var(--c2, #1f2937)"/>
+      <path d="M13 142 h15 v6 h-17 z M32 142 h15 v6 h-15 z" fill="#0c0a09"/>
+      <rect x="25" y="24" width="10" height="14" fill="var(--skin)"/>
+      <path d="M8 44 Q30 30 52 44 L53 98 Q51 103 47 99 L44 72 L43 96 H17 L16 72 L13 99 Q9 103 7 98 Z" fill="var(--c1, #1f2937)"/>
+      <path d="M24 37 L30 60 L36 37 Z" fill="#f8fafc"/>
+      <path d="M29 40 L31 40 L32 58 L30 62 L28 58 Z" fill="var(--tie, #b91c1c)"/>
+    </symbol>
+    <symbol id="b-dealer" viewBox="0 0 60 150">
+      <path d="M18 92 L16 142 H27 L30 102 L33 142 H44 L42 92 Z" fill="#111827"/>
+      <path d="M13 142 h15 v6 h-17 z M32 142 h15 v6 h-15 z" fill="#0c0a09"/>
+      <rect x="25" y="24" width="10" height="14" fill="var(--skin)"/>
+      <path d="M8 44 Q30 31 52 44 L53 98 Q51 103 47 99 L44 72 L43 96 H17 L16 72 L13 99 Q9 103 7 98 Z" fill="#f8fafc"/>
+      <path d="M16 44 Q30 36 44 44 L43 96 H17 Z" fill="#111827"/>
+      <path d="M26 38 L30 58 L34 38 Z" fill="#f8fafc"/>
+      <path d="M24 38 L30 41 L36 38 L36 44 L30 41 L24 44 Z" fill="var(--tie, #dc2626)"/>
+      <circle cx="37" cy="54" r="1.6" fill="#e7c35a"/><circle cx="37" cy="64" r="1.6" fill="#e7c35a"/>
+    </symbol>
+    <symbol id="b-waitress" viewBox="0 0 70 150">
+      <path d="M22 112 L21 142 H27 L28 112 Z M32 112 L33 142 H39 L38 112 Z" fill="var(--skin)"/>
+      <path d="M18 142 h11 v5 h-12 z M31 142 h11 v5 h-11 z" fill="#1c1917"/>
+      <rect x="25" y="24" width="10" height="16" fill="var(--skin)"/>
+      <path d="M16 42 Q9 45 9 62 L7 94 Q9 98 12 94 L16 64 Z" fill="var(--skin)"/>
+      <path d="M44 44 Q52 40 55 26 L58 27 Q57 44 46 56 Z" fill="var(--skin)"/>
+      <path d="M17 40 Q30 35 43 40 L44 64 L50 116 H10 L16 64 Z" fill="#111827"/>
+      <path d="M22 70 H38 L41 106 H19 Z" fill="#f8fafc"/>
+      <ellipse cx="56" cy="24" rx="13" ry="3.5" fill="#d1d5db" stroke="#6b7280"/>
+      <path d="M50 21 L49 12 H54 L53 21 Z" fill="#fde68a"/><path d="M58 21 L57 10 H62 L61 21 Z" fill="#fecaca"/>
+    </symbol>
+    <symbol id="b-security" viewBox="0 0 60 150">
+      <path d="M17 92 L15 142 H27 L30 102 L33 142 H45 L43 92 Z" fill="#0b0f19"/>
+      <path d="M12 142 h16 v6 h-18 z M32 142 h16 v6 h-16 z" fill="#000"/>
+      <rect x="24" y="24" width="12" height="14" fill="var(--skin)"/>
+      <path d="M6 44 Q30 29 54 44 L55 92 L46 90 L43 96 H17 L14 90 L5 92 Z" fill="#0b0f19"/>
+      <path d="M24 37 L30 60 L36 37 Z" fill="#f8fafc"/><path d="M29 40 H31 L32 58 L30 62 L28 58 Z" fill="#0b0f19"/>
+      <path d="M14 88 Q30 96 46 88 L44 84 Q30 90 16 84 Z" fill="var(--skin)"/>
+      <path d="M41 26 Q46 34 40 44" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
+      <text x="30" y="78" font-size="6" font-weight="700" fill="#fbbf24" text-anchor="middle" font-family="system-ui, sans-serif">SECURITY</text>
+    </symbol>
+  </defs>
+
+  <!-- floors: lobby marble underneath, a room on each side of ours -->
+  <rect x="0" y="0" width="1600" height="1000" fill="url(#marble)"/>
+  <rect x="0" y="0" width="250" height="1000" fill="url(#carpetSlots)"/>
+  <rect x="250" y="0" width="800" height="170" fill="url(#carpetTeal)"/>
+  <rect x="1050" y="0" width="550" height="170" fill="url(#planks)"/>
+  <rect x="1350" y="170" width="250" height="760" fill="url(#planks)"/>
+  <rect x="250" y="170" width="1100" height="760" fill="url(#carpetRich)"/>
+  <rect x="266" y="186" width="1068" height="728" fill="none" stroke="#1e2a5a" stroke-width="10"/>
+  <rect x="266" y="186" width="1068" height="728" fill="none" stroke="#d4a441" stroke-width="2"/>
+
+  <!-- slots room -->
+  <g id="slotsLeft"></g>
+  <!-- blackjack room: dealers stand behind their tables -->
+  <g id="behindTables"></g>
+  <use href="#blackjack" x="300" y="44" width="180" height="106"/>
+  <use href="#blackjack" x="560" y="44" width="180" height="106"/>
+  <use href="#blackjack" x="820" y="44" width="180" height="106"/>
+  <!-- bar: back shelf with bottles, bartender, counter, stools -->
+  <rect x="1080" y="6" width="500" height="26" fill="#3f2414"/>
+  <g id="bottles"></g>
+  <g id="behindBar"></g>
+  <rect x="1100" y="46" width="470" height="30" rx="6" fill="#4a2a17" stroke="#c9a14a" stroke-width="2"/>
+  <g id="barStools"></g>
+  <!-- lounge -->
+  <use href="#cocktail-table" x="1400" y="330" width="80" height="80"/>
+  <use href="#cocktail-table" x="1480" y="560" width="80" height="80"/>
+
+  <!-- walls, with doorways between the rooms -->
+  <g fill="#150a0e" stroke="#c9a14a" stroke-width="2">
+    <path d="M250 158 H520 V182 H250 Z M640 158 H960 V182 H640 Z M1080 158 H1350 V182 H1080 Z"/>
+    <path d="M238 170 H262 V420 H238 Z M238 560 H262 V930 H238 Z"/>
+    <path d="M1338 170 H1362 V420 H1338 Z M1338 560 H1362 V930 H1338 Z"/>
+    <path d="M1038 0 H1062 V60 H1038 Z M1038 130 H1062 V170 H1038 Z"/>
+    <path d="M238 918 H700 V942 H238 Z M900 918 H1362 V942 H900 Z"/>
+  </g>
+
+  <!-- poker room decor, well away from our table -->
+  <use href="#palm" x="262" y="182" width="90" height="90"/>
+  <use href="#palm" x="1248" y="182" width="90" height="90"/>
+  <use href="#palm" x="262" y="826" width="90" height="90"/>
+  <use href="#palm" x="1248" y="826" width="90" height="90"/>
+  <use href="#cocktail-table" x="300" y="760" width="70" height="70"/>
+  <use href="#cocktail-table" x="1150" y="760" width="70" height="70"/>
+
+  <g id="crowd"></g>
+
+  <!-- dim lighting: brightest over our table, warm lamps in the other rooms -->
+  <rect width="1600" height="1000" fill="url(#darkness)"/>
+  <g fill="url(#lamp)">
+    <circle cx="390" cy="80" r="120"/><circle cx="650" cy="80" r="120"/><circle cx="910" cy="80" r="120"/>
+    <circle cx="1320" cy="70" r="150"/><circle cx="110" cy="300" r="130"/><circle cx="110" cy="700" r="130"/>
+    <circle cx="1470" cy="480" r="150"/>
+  </g>
+</svg>
+
+<header>
+  <h1>
+    <!-- Styled after the "Welcome to Fabulous Las Vegas" sign -->
+    <svg class="logo" viewBox="0 0 300 110" role="img" aria-label="CLI LAN Poker">
+      <path d="M6 55 Q80 8 150 4 Q220 8 294 55 Q220 102 150 106 Q80 102 6 55 Z" fill="#c8102e"/>
+      <path id="logoEdge" d="M17 55 Q84 17 150 13 Q216 17 283 55 Q216 93 150 97 Q84 93 17 55 Z" fill="#fffaf0" stroke="#1f2b6e" stroke-width="1.5"/>
+      <g id="logoBulbs"></g>
+      <g fill="#fff" stroke="#c8102e" stroke-width="1.8">
+        <circle cx="86" cy="39" r="11"/><circle cx="110" cy="39" r="11"/><circle cx="134" cy="39" r="11"/>
+        <circle cx="166" cy="39" r="11"/><circle cx="190" cy="39" r="11"/><circle cx="214" cy="39" r="11"/>
+      </g>
+      <g font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-weight="800" font-size="14" text-anchor="middle" fill="#c8102e">
+        <text x="86" y="44">C</text><text x="110" y="44">L</text><text x="134" y="44">I</text>
+        <text x="166" y="44">L</text><text x="190" y="44">A</text><text x="214" y="44">N</text>
+      </g>
+      <text x="150" y="85" text-anchor="middle" font-family="Caveat, cursive" font-weight="700" font-size="40"
+            fill="#c8102e" stroke="#7a0a1c" stroke-width=".7" letter-spacing="3">POKER</text>
+      <g font-size="18" text-anchor="middle" font-family="Georgia, serif">
+        <text x="76" y="80" fill="#1f2b6e">♠</text><text x="224" y="80" fill="#c8102e">♦</text>
+      </g>
+      <!-- starburst -->
+      <path transform="translate(270 16)" d="M0 -17 L4.2 -5 L16 -7.3 L6.7 1.2 L13.4 12 L1.8 6 L-4.9 15.8 L-4.2 3.6 L-15.8 1.2 L-4.9 -4.2 Z"
+            fill="#ffc72c" stroke="#b8860b" stroke-width="1.2"/>
+    </svg>
+  </h1>
+  <span class="meta" id="meta">connecting…</span>
+  <span class="status" id="status">connecting…</span>
+</header>
+
+<main>
+  <section>
+    <div class="stage">
+      <div class="table-wrap" id="table">
+        <svg class="table-svg" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <radialGradient id="feltShade" cx="50%" cy="45%" r="60%">
+              <stop offset="0" stop-color="#1f8f57"/><stop offset="1" stop-color="#136b3f"/>
+            </radialGradient>
+          </defs>
+          <!-- flat top-down table: wooden rail, gold trim, green felt -->
+          <ellipse cx="500" cy="306" rx="486" ry="288" fill="rgba(0,0,0,.35)"/>
+          <ellipse cx="500" cy="300" rx="484" ry="286" fill="#5b3419"/>
+          <ellipse cx="500" cy="300" rx="466" ry="268" fill="none" stroke="#7a4a26" stroke-width="10" vector-effect="non-scaling-stroke"/>
+          <ellipse cx="500" cy="300" rx="430" ry="232" fill="#e7b84f"/>
+          <ellipse cx="500" cy="300" rx="424" ry="226" fill="url(#feltShade)"/>
+          <ellipse cx="500" cy="300" rx="330" ry="150" fill="none" stroke="#e7c35a" stroke-width="1.5" opacity=".45" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div class="center">
+          <div class="board" id="board"></div>
+          <div class="pot" id="pot">Pot: <b>0</b></div>
+          <div class="banner" id="banner" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <div class="hint" id="hint">Waiting for the table…</div>
+      <div class="right">
+        <div class="raise-row" id="raiseRow" hidden>
+          <input type="range" id="range" aria-label="Raise amount">
+          <input type="number" id="amount" aria-label="Raise to">
+        </div>
+        <div class="buttons">
+          <button id="fold" disabled>Fold<small>F</small></button>
+          <button id="call" disabled>Call<small>C</small></button>
+          <button id="raise" disabled>Raise<small>R</small></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside>
+    <h2>Hand history</h2>
+    <div class="log" id="log"></div>
+  </aside>
+</main>
+
+<footer>Any problems or want to contribute? Contact <a href="mailto:ww-developer@protonmail.com">ww-developer@protonmail.com</a></footer>
+
+<div class="overlay" id="overlay" hidden><div class="dialog" id="dialog"></div></div>
+
+<script>
+const SUITS = { c: '♣', d: '♦', h: '♥', s: '♠' };
+const STYLES = { tag: 'Tight-Aggressive', lag: 'Loose-Aggressive', rock: 'Tight-Passive', station: 'Calling Station' };
+const SHORT_STYLES = { tag: 'TAG', lag: 'LAG', rock: 'Rock', station: 'Station' };
+const token = new URLSearchParams(location.search).get('t');
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => n.toLocaleString();
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+let ws = null;
+let view = null;
+let raiseTo = 0;
+let raiseKey = '';
+let lastPot = 0;
+let deadlineSeen = null;
+let deadlineTotal = 1;
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws?t=${token}`);
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'view') render(msg.view);
+    else if (msg.type === 'error') toast(msg.message);
+    else if (msg.type === 'status') setStatus(msg.status);
+  };
+  ws.onclose = () => {
+    setStatus('closed');
+    setTimeout(connect, 2000);
+  };
+}
+const send = (msg) => ws && ws.readyState === 1 && ws.send(JSON.stringify(msg));
+const act = (action) => send({ type: 'action', action });
+const command = (command) => send({ type: 'command', command });
+
+function setStatus(status) {
+  const labels = { connected: 'connected', connecting: 'connecting…', reconnecting: 'reconnecting…', closed: 'disconnected, is the CLI still running?' };
+  $('status').textContent = labels[status] || status;
+  $('status').classList.toggle('off', status !== 'connected');
+}
+
+function toast(message) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = message;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function cardEl(code, small) {
+  const el = document.createElement('div');
+  el.className = 'card' + (small ? ' small' : '');
+  if (!code) el.classList.add('back');
+  else {
+    if (code[1] === 'h' || code[1] === 'd') el.classList.add('red');
+    const suit = SUITS[code[1]];
+    el.innerHTML = `<span class="idx">${code[0] === 'T' ? '10' : code[0]}<i>${suit}</i></span><span class="pip">${suit}</span>`;
+  }
+  return el;
+}
+
+/** Only (re)creates cards that changed, so the deal animation plays for new cards only. */
+function syncCards(container, codes, keyPrefix, small, slots = 0) {
+  const keys = codes.map((c, i) => `${keyPrefix}:${i}:${c || 'x'}`);
+  const current = [...container.querySelectorAll('.card')].map((el) => el.dataset.key);
+  if (keys.join() === current.join() && container.children.length === Math.max(slots, keys.length)) return [];
+  let same = 0;
+  while (same < keys.length && keys[same] === current[same]) same++;
+  container.replaceChildren(...[...container.querySelectorAll('.card')].slice(0, same));
+  for (let i = same; i < keys.length; i++) {
+    const el = cardEl(codes[i], small);
+    el.dataset.key = keys[i];
+    el.style.animationDelay = `${(i - same) * 90}ms`;
+    container.append(el);
+  }
+  for (let i = keys.length; i < slots; i++) {
+    const s = document.createElement('div');
+    s.className = 'slot';
+    container.append(s);
+  }
+  return [...container.querySelectorAll('.card')].slice(same);
+}
+
+function drawCasino() {
+  const NS = 'http://www.w3.org/2000/svg';
+  const add = (parent, tag, attrs) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    $(parent).append(e);
+  };
+  for (let y = 190; y < 960; y += 78) add('slotsLeft', 'use', { href: '#slot-top', x: 10, y, width: 130, height: 80 });
+  const bottle = ['#65a30d', '#b45309', '#1d4ed8', '#be123c', '#f5f5f4', '#7c2d12', '#0f766e'];
+  for (let x = 1092, k = 0; x < 1572; x += 13, k++) add('bottles', 'circle', { cx: x, cy: 19, r: 5, fill: bottle[k % bottle.length] });
+  for (let x = 1140; x < 1560; x += 60) {
+    add('barStools', 'circle', { cx: x, cy: 96, r: 13, fill: '#1c1917' });
+    add('barStools', 'circle', { cx: x, cy: 96, r: 9, fill: '#b91c1c' });
+  }
+}
+drawCasino();
+
+/**
+ * Guests and staff: photo faces (CC0, see public/people/CREDITS.md) on drawn bodies.
+ * Nobody moves, and everyone keeps well away from our table.
+ */
+const FACES = {
+  // face: [width, height, skin tone for the drawn arms/neck]
+  'face-01': [121, 160, '#6b4226'], 'face-02': [148, 160, '#f1c9a5'], 'face-03': [151, 160, '#7a4a2a'],
+  'face-04': [152, 160, '#e9c1a0'], 'face-05': [148, 160, '#efc7a6'], 'face-06': [139, 160, '#f3d0b5'],
+  'face-07': [151, 160, '#e0b48f'], 'face-08': [152, 160, '#a86b45'], 'face-09': [116, 160, '#efd3bd'],
+  'face-10': [100, 160, '#f5d3bb'], 'face-11': [127, 160, '#ecc3a3'], 'face-12': [148, 160, '#6e4127'],
+  'face-13': [137, 160, '#f0cfae'], 'face-14': [162, 160, '#b27650'], 'face-15': [134, 160, '#b98260'],
+};
+(function drawCrowd() {
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    parent.append(e);
+    return e;
+  };
+  /** Feet at (x, y), `h` tall. Body colours: c1 top, c2 bottom, tie. `flip` mirrors the face only. */
+  const person = (group, face, body, x, y, height, colors = {}, flip = false) => {
+    const [fw, fh, skin] = FACES[face];
+    const h = height * 1.15;
+    const unit = h / 150;
+    const bodyWidth = (body === 'b-waitress' ? 70 : 60) * unit;
+    const g = el('g', {}, $(group));
+    el('ellipse', { cx: x, cy: y, rx: 20 * unit, ry: 5 * unit, fill: 'rgba(0,0,0,.4)' }, g);
+    const u = el('use', { href: `#${body}`, x: x - 30 * unit, y: y - h, width: bodyWidth, height: h }, g);
+    u.style.setProperty('--skin', skin);
+    for (const [k, v] of Object.entries(colors)) u.style.setProperty(`--${k}`, v);
+    const headH = 0.3 * h;
+    const headW = (headH * fw) / fh;
+    // Chin rests just above the shoulders (the drawn neck starts at 0.16h, shoulders at 0.28h).
+    el('image', {
+      href: `/people/${face}.webp`, x: x - headW / 2, y: y - h + 0.265 * h - headH, width: headW, height: headH,
+      ...(flip ? { transform: `translate(${2 * x} 0) scale(-1 1)` } : {}),
+    }, g);
+  };
+
+  // Staff: dealers behind the blackjack tables, a bartender behind the bar,
+  // waitresses carrying drinks, and security by the doors.
+  person('behindTables', 'face-01', 'b-dealer', 390, 84, 76);
+  person('behindTables', 'face-07', 'b-dealer', 650, 84, 76, { tie: '#7c3aed' });
+  person('behindTables', 'face-13', 'b-dealer', 910, 84, 76);
+  person('behindBar', 'face-09', 'b-dealer', 1330, 74, 70, { tie: '#0f766e' });
+  person('crowd', 'face-02', 'b-waitress', 300, 250, 118);
+  person('crowd', 'face-10', 'b-waitress', 1250, 862, 118, {}, true);
+  person('crowd', 'face-15', 'b-security', 205, 575, 128);
+  person('crowd', 'face-11', 'b-security', 1020, 250, 122, {}, true);
+
+  // Guests: at the slots, leaning on the bar, chatting by the cocktail tables.
+  person('crowd', 'face-03', 'b-casual', 172, 455, 120, { c1: '#ec4899', c2: '#1e3a8a' });
+  person('crowd', 'face-05', 'b-dress', 170, 760, 120, { c1: '#16a34a' }, true);
+  person('crowd', 'face-06', 'b-dress', 1190, 168, 112, { c1: '#0ea5e9' });
+  person('crowd', 'face-12', 'b-dress', 1265, 168, 112, { c1: '#f59e0b' }, true);
+  person('crowd', 'face-08', 'b-casual', 300, 862, 116, { c1: '#f97316', c2: '#1f2937' });
+  person('crowd', 'face-04', 'b-suit', 386, 866, 118, { c1: '#334155', c2: '#1e293b', tie: '#e11d48' }, true);
+  person('crowd', 'face-14', 'b-dress', 1110, 862, 116, { c1: '#a855f7' });
+})();
+
+/** Marquee bulbs around the logo's diamond. */
+(function lightLogo() {
+  const edge = $('logoEdge');
+  const len = edge.getTotalLength();
+  const bulbs = $('logoBulbs');
+  for (let d = 0; d < len; d += 10.5) {
+    const p = edge.getPointAtLength(d);
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('class', 'bulb');
+    c.setAttribute('cx', p.x.toFixed(1));
+    c.setAttribute('cy', p.y.toFixed(1));
+    c.setAttribute('r', '2.3');
+    bulbs.append(c);
+  }
+})();
+
+/** Every player at the table: a bald cartoon kid with glasses and a deadpan poker face. */
+const SHIRTS = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
+function avatarSvg(shirt) {
+  return `<svg viewBox="0 0 64 64" aria-hidden="true">
+    <circle cx="32" cy="32" r="32" fill="#0f172a"/>
+    <path d="M7 64 Q9 45 32 45 Q55 45 57 64 Z" fill="${shirt}"/>
+    <path d="M24 46 L32 53 L40 46" fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+    <ellipse cx="14.5" cy="30" rx="4" ry="5.5" fill="#f2c4a0"/><ellipse cx="49.5" cy="30" rx="4" ry="5.5" fill="#f2c4a0"/>
+    <ellipse cx="32" cy="28" rx="17" ry="19" fill="#f8d4b4"/>
+    <ellipse cx="25" cy="15" rx="5.5" ry="2.6" fill="#fff" opacity=".5"/>
+    <path d="M20 21.5 H28 M36 21.5 H44" stroke="#8a5a3b" stroke-width="1.8" stroke-linecap="round"/>
+    <g fill="rgba(255,255,255,.28)" stroke="#111" stroke-width="2">
+      <rect x="18.5" y="24.5" width="11" height="8" rx="2"/><rect x="34.5" y="24.5" width="11" height="8" rx="2"/>
+    </g>
+    <path d="M29.5 28 H34.5 M18.5 27 L15 25.5 M45.5 27 L49 25.5" stroke="#111" stroke-width="2"/>
+    <circle cx="24" cy="28.6" r="1.6" fill="#111"/><circle cx="40" cy="28.6" r="1.6" fill="#111"/>
+    <path d="M32 30 Q34.5 34 31 35" fill="none" stroke="#d99a7a" stroke-width="1.4"/>
+    <path d="M26 40.5 H38" stroke="#7a3b2e" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/** New community cards slide from the dealer's seat into their spot on the board. */
+function slideIntoPlace(cards) {
+  if (!cards.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const dealer = [...document.querySelectorAll('.seat')].find((s) => s.querySelector('.badge')?.textContent === 'D');
+  const from = (dealer || $('pot')).getBoundingClientRect();
+  cards.forEach((card, i) => {
+    const to = card.getBoundingClientRect();
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    card.style.animation = 'none';
+    card.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) rotate(-25deg) scale(.7)`, opacity: 0 },
+        { opacity: 1, offset: 0.25 },
+        { transform: 'translate(0, 0) rotate(0) scale(1)', opacity: 1 },
+      ],
+      { duration: 600, delay: i * 160, easing: 'cubic-bezier(.2, .8, .25, 1)', fill: 'backwards' },
+    );
+  });
+}
+
+function keyed(parent, selector, id, create) {
+  let el = parent.querySelector(`${selector}[data-id="${id}"]`);
+  if (!el) {
+    el = create();
+    el.dataset.id = id;
+    parent.append(el);
+  }
+  return el;
+}
+
+function render(v) {
+  view = v;
+  const seats = v.seats;
+  $('meta').textContent = `${v.tableName} · hand #${v.handNumber} · blinds ${v.smallBlind}/${v.bigBlind}`;
+
+  // Seats around the rail with you at the bottom; each bet sits on the felt in front of its seat.
+  const table = $('table');
+  const youIdx = Math.max(0, seats.findIndex((s) => s.isYou));
+  const ids = new Set(seats.map((s) => s.id));
+  table.querySelectorAll('.seat, .bet').forEach((el) => !ids.has(el.dataset.id) && el.remove());
+
+  seats.forEach((s, i) => {
+    const angle = Math.PI / 2 + ((i - youIdx) * 2 * Math.PI) / seats.length;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const el = keyed(table, '.seat', s.id, () => {
+      const d = document.createElement('div');
+      d.innerHTML = `<div class="cards"></div><div class="plate"><div class="avatar">${avatarSvg(SHIRTS[i % SHIRTS.length])}</div>`
+        + '<div class="info"><div class="name"></div><div class="chips"></div><div class="note"></div><div class="hand"></div></div></div>';
+      return d;
+    });
+    el.style.left = `${50 + 47 * cos}%`;
+    el.style.top = `${50 + 45 * sin}%`;
+    el.className = 'seat';
+    el.classList.toggle('you', s.isYou);
+    el.classList.toggle('turn', s.isTurn);
+    el.classList.toggle('folded', s.folded);
+    el.classList.toggle('out', s.eliminated || s.reserved);
+    el.classList.toggle('offline', !s.connected && !s.isBot);
+    el.classList.toggle('winner', v.phase !== 'playing' && !!s.isWinner && !!v.lastHand);
+
+    el.querySelector('.name').textContent = s.name + (s.isYou ? ' (you)' : '');
+    el.querySelector('.chips').textContent = s.eliminated ? 'busted' : fmt(s.chips);
+    const note = el.querySelector('.note');
+    note.textContent = s.allIn ? 'all in!' : s.lastAction || (s.isBot ? `bot · ${SHORT_STYLES[s.botStyle] || ''}` : s.reserved ? 'waiting to rejoin' : '');
+    note.classList.toggle('allin', s.allIn);
+    el.querySelector('.hand').textContent = s.handName || '';
+    syncCards(el.querySelector('.cards'), s.holeCards, `${v.handNumber}`, true);
+
+    let badge = el.querySelector('.badge');
+    const badgeText = v.phase === 'lobby' ? '' : s.isDealer ? 'D' : s.isSmallBlind ? 'SB' : s.isBigBlind ? 'BB' : '';
+    if (badgeText) {
+      if (!badge) { badge = document.createElement('div'); badge.className = 'badge'; el.append(badge); }
+      badge.textContent = badgeText;
+      badge.style.fontSize = badgeText.length > 1 ? '11px' : '14px';
+    } else badge?.remove();
+
+    let timer = el.querySelector('.timer');
+    if (s.isTurn && v.turnDeadline) {
+      if (!timer) { timer = document.createElement('div'); timer.className = 'timer'; el.querySelector('.plate').append(timer); }
+    } else timer?.remove();
+
+    if (s.streetBet > 0) {
+      const bet = keyed(table, '.bet', s.id, () => {
+        const d = document.createElement('div');
+        d.className = 'bet';
+        d.innerHTML = '<span class="chip"></span><span class="amt"></span>';
+        return d;
+      });
+      bet.style.left = `${50 + 30 * cos}%`;
+      bet.style.top = `${50 + 27 * sin}%`;
+      bet.querySelector('.amt').textContent = fmt(s.streetBet);
+    } else table.querySelector(`.bet[data-id="${s.id}"]`)?.remove();
+  });
+
+  slideIntoPlace(syncCards($('board'), v.board, `b${v.handNumber}`, false, 5));
+  const pot = $('pot');
+  pot.innerHTML = `Pot: <b>${fmt(v.pot)}</b>`;
+  if (v.pot !== lastPot) { pot.classList.remove('bump'); void pot.offsetWidth; pot.classList.add('bump'); lastPot = v.pot; }
+
+  const banner = $('banner');
+  const summary = v.phase !== 'playing' && v.lastHand ? describeHand(v.lastHand) : '';
+  banner.hidden = !summary;
+  banner.textContent = summary;
+
+  const log = $('log');
+  log.replaceChildren(...v.log.map((line) => {
+    const d = document.createElement('div');
+    d.textContent = line;
+    if (line.startsWith('──')) d.className = 'sep';
+    return d;
+  }));
+  log.scrollTop = log.scrollHeight;
+
+  renderControls(v);
+  renderOverlay(v);
+  tick();
+}
+
+function describeHand(h) {
+  return h.pots.map((p) => {
+    const names = p.winners.map((w) => w.name).join(' & ');
+    const verb = p.winners.length > 1 ? 'split' : 'wins';
+    return `${names} ${verb} ${fmt(p.amount)}${p.handName && !h.uncontested ? ` with ${p.handName}` : ''}`;
+  }).join(' · ');
+}
+
+let wasMyTurn = false;
+
+/** Exactly three actions: Fold, Call (a check when there's nothing to call), Raise. */
+function renderControls(v) {
+  const L = v.legal;
+  const myTurn = !!L;
+  document.body.classList.toggle('my-turn', myTurn);
+  $('controls').classList.toggle('my-turn', myTurn);
+  document.title = myTurn ? '▶ YOUR TURN · CLI LAN Poker' : 'CLI LAN Poker';
+  if (myTurn && !wasMyTurn) {
+    const callout = document.createElement('div');
+    callout.className = 'turn-callout';
+    callout.textContent = 'YOUR TURN';
+    document.body.append(callout);
+    setTimeout(() => callout.remove(), 1700);
+  }
+  wasMyTurn = myTurn;
+  const me = v.seats.find((s) => s.isYou);
+  const turn = v.seats.find((s) => s.isTurn);
+
+  $('fold').disabled = !L;
+  $('call').disabled = !L;
+  $('raise').disabled = !L || !L.canRaise;
+  $('call').innerHTML = L && L.canCall ? `Call<small>${fmt(L.callAmount)}</small>` : L && L.canCheck ? 'Check<small>C</small>' : 'Call<small>C</small>';
+
+  const row = $('raiseRow');
+  if (L && L.canRaise) {
+    const key = `${v.handNumber}-${v.street}-${v.currentBet}`;
+    if (key !== raiseKey) {
+      // New decision point: reset the slider to the minimum raise.
+      raiseKey = key;
+      for (const input of [$('range'), $('amount')]) {
+        input.min = L.minRaiseTo;
+        input.max = L.maxRaiseTo;
+      }
+      $('range').step = v.bigBlind;
+      setRaise(L.minRaiseTo);
+    }
+    row.hidden = false;
+  } else {
+    row.hidden = true;
+    raiseKey = '';
+    $('raise').innerHTML = 'Raise<small>R</small>';
+  }
+
+  let hint = '';
+  if (v.phase === 'handOver') hint = '<span id="countdown"></span>';
+  else if (v.phase === 'playing') {
+    if (L) hint = `<b>▶ Your turn</b> <span id="countdown"></span>`;
+    else if (me && me.eliminated) hint = "You're out of chips, spectating.";
+    else if (turn) hint = `Waiting for ${esc(turn.name)}…`;
+  }
+  $('hint').innerHTML = hint;
+}
+
+function setRaise(n) {
+  const L = view && view.legal;
+  if (!L) return;
+  raiseTo = Math.max(L.minRaiseTo, Math.min(L.maxRaiseTo, Math.round(n) || L.minRaiseTo));
+  $('range').value = raiseTo;
+  $('amount').value = raiseTo;
+  $('raise').innerHTML = `Raise<small>to ${fmt(raiseTo)}${raiseTo === L.maxRaiseTo ? ' (all in)' : ''}</small>`;
+}
+
+$('range').oninput = (e) => setRaise(+e.target.value);
+$('amount').onchange = (e) => setRaise(+e.target.value);
+$('fold').onclick = () => act({ type: 'fold' });
+$('call').onclick = () => view && view.legal && act(view.legal.canCheck ? { type: 'check' } : { type: 'call' });
+$('raise').onclick = () => act({ type: 'raise', amount: raiseTo });
+
+function renderOverlay(v) {
+  const overlay = $('overlay');
+  const dialog = $('dialog');
+  if (v.phase === 'lobby') {
+    const lobby = v.lobby;
+    const bots = v.seats.filter((s) => s.isBot).length;
+    const rows = v.seats.map((s) => `<li><span>${esc(s.name)}${s.isYou ? ' (you)' : ''}</span><span class="tag">${
+      s.isBot ? `bot · ${STYLES[s.botStyle] || ''}` : s.reserved ? `waiting · ${fmt(s.chips)}` : lobby.resumed ? fmt(s.chips) : 'player'}</span></li>`).join('');
+    const reserved = v.seats.some((s) => s.reserved);
+    const full = v.seats.length >= lobby.maxPlayers;
+    dialog.innerHTML = `
+      <h2>${esc(v.tableName)}</h2>
+      <p>${lobby.isHost
+        ? (lobby.addresses.length ? `Friends join from <span class="addr">${lobby.addresses.map(esc).join('</span> or <span class="addr">')}</span>` : 'No LAN address found. Check your network.')
+        : 'Waiting for the host to start the game…'}</p>
+      <ul>${rows}</ul>
+      ${lobby.isHost ? `<div class="row">
+        <button id="addBot" ${bots >= lobby.maxBots || full ? 'disabled' : ''}>Add bot (${bots}/${lobby.maxBots})</button>
+        <button id="removeBot" ${bots === 0 ? 'disabled' : ''}>Remove bot</button>
+        ${reserved ? '<button id="fillBots">Bots take empty seats</button>' : ''}
+        <button id="start" ${lobby.canStart ? '' : 'disabled'}>Start game</button>
+      </div>` : ''}
+      ${v.message ? `<p style="margin-top:12px">${esc(v.message)}</p>` : ''}`;
+    if (lobby.isHost) {
+      $('addBot').onclick = () => command('addBot');
+      $('removeBot').onclick = () => command('removeBot');
+      $('start').onclick = () => command('start');
+      if (reserved) $('fillBots').onclick = () => command('fillBots');
+    }
+    overlay.hidden = false;
+  } else if (v.phase === 'gameOver') {
+    const standings = [...v.seats].sort((a, b) => b.chips - a.chips);
+    dialog.innerHTML = `
+      <h2>Game over</h2>
+      <p>${esc(v.message || '')}</p>
+      <ul>${standings.map((s, i) => `<li><span>#${i + 1} ${esc(s.name)}</span><span class="tag">${fmt(s.chips)}</span></li>`).join('')}</ul>
+      <p>Head back to the terminal to play again.</p>`;
+    overlay.hidden = false;
+  } else {
+    overlay.hidden = true;
+  }
+}
+
+function tick() {
+  if (!view) return;
+  const el = $('countdown');
+  const now = Date.now();
+  if (view.turnDeadline) {
+    if (deadlineSeen !== view.turnDeadline) {
+      deadlineSeen = view.turnDeadline;
+      deadlineTotal = Math.max(1, view.turnDeadline - now);
+    }
+    const leftMs = Math.max(0, view.turnDeadline - now);
+    if (el && view.legal) el.textContent = `(${Math.ceil(leftMs / 1000)}s)`;
+    const timer = document.querySelector('.seat.turn .timer');
+    if (timer) timer.style.width = `${Math.min(100, (leftMs / deadlineTotal) * 100)}%`;
+  }
+  if (view.phase === 'handOver' && view.nextHandAt && el) {
+    el.textContent = `Next hand in ${Math.max(0, Math.ceil((view.nextHandAt - now) / 1000))}s`;
+  }
+}
+setInterval(tick, 500);
+
+document.addEventListener('keydown', (e) => {
+  if (!view || !view.legal || e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === 'f') $('fold').click();
+  else if (k === 'c') $('call').click();
+  else if (k === 'r' && !$('raise').disabled) $('raise').click();
+});
+
+connect();
+</script>
+</body>
+</html>
