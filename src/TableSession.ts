@@ -45,6 +45,8 @@ export class TableSession extends EventEmitter {
   private timer: NodeJS.Timeout | null = null;
   private readonly bots = new Map<string, Bot>();
   private readonly bustOrder: string[] = [];
+  /** Hands won per player id, for the trophies next to their names. */
+  private readonly handsWon = new Map<string, number>();
   private readonly savedIds = new Set<string>();
   private readonly saveId: string;
   private readonly createdAt: string;
@@ -231,6 +233,7 @@ export class TableSession extends EventEmitter {
       p.resetForHand();
     }
     this.bustOrder.length = 0;
+    this.handsWon.clear();
     s.handNumber = 0;
     s.dealerIndex = -1;
     s.lastHand = null;
@@ -309,6 +312,8 @@ export class TableSession extends EventEmitter {
     const s = this.state;
     this.phase = 'handOver';
     for (const p of s.players) if (p.chips === 0 && !this.bustOrder.includes(p.id)) this.bustOrder.push(p.id);
+    const winners = new Set(s.lastHand?.pots.flatMap((pot) => pot.winners.map((w) => w.id)) ?? []);
+    for (const id of winners) this.handsWon.set(id, (this.handsWon.get(id) ?? 0) + 1);
 
     const local = s.player(this.localId);
     const localBusted = this.opts.mode === 'single' && local && local.chips === 0;
@@ -364,7 +369,7 @@ export class TableSession extends EventEmitter {
       currentBet: s.currentBet,
       smallBlind: s.config.smallBlind,
       bigBlind: s.config.bigBlind,
-      seats: s.seatViews(playerId),
+      seats: s.seatViews(playerId).map((seat) => ({ ...seat, handsWon: this.handsWon.get(seat.id) ?? 0 })),
       toActId: s.toAct?.id ?? null,
       legal: this.phase === 'playing' ? this.game.legalActions(playerId) : null,
       turnDeadline: this.turnDeadline,

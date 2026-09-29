@@ -61,6 +61,8 @@ export interface SeatView {
   lastAction: string | null;
   handName?: string;
   isWinner?: boolean;
+  /** Hands this player has won (or split) in this game. */
+  handsWon?: number;
 }
 
 export interface LobbyInfo {

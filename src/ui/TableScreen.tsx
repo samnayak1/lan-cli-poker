@@ -53,6 +53,8 @@ export function TableScreen({ table, onExit }: { table: LaunchedTable; onExit: (
   /** False while the raise box still shows a prefilled amount the next digit should replace. */
   const [raiseTyped, setRaiseTyped] = useState(false);
   const [confirmQuit, setConfirmQuit] = useState(false);
+  /** Keep your own cards face down on screen (H toggles). */
+  const [hideCards, setHideCards] = useState(false);
   const now = useNow(!!(view?.turnDeadline || view?.nextHandAt));
   const legal = view?.legal ?? null;
 
@@ -102,6 +104,7 @@ export function TableScreen({ table, onExit }: { table: LaunchedTable; onExit: (
     }
 
     if (k === 'q') return setConfirmQuit(true);
+    if (k === 'h') return setHideCards((h) => !h);
     if (k === 'o' && table.guiUrl) return void open(table.guiUrl).catch(() => {});
 
     if (view.phase === 'gameOver' || (status === 'closed' && view.mode === 'client')) {
@@ -140,7 +143,7 @@ export function TableScreen({ table, onExit }: { table: LaunchedTable; onExit: (
         <Lobby view={view} />
       ) : (
         <>
-          <Seats view={view} now={now} />
+          <Seats view={view} now={now} hideCards={hideCards} />
           <Box marginTop={1} gap={2}>
             <Text bold>Board</Text>
             <Cards codes={view.board} slots={5} />
@@ -171,6 +174,7 @@ export function TableScreen({ table, onExit }: { table: LaunchedTable; onExit: (
         ) : (
           <>
             <KeyHint k="Q" label={view.mode === 'client' ? 'leave' : 'quit to menu'} color="gray" />
+            <KeyHint k="H" label={hideCards ? 'show my cards' : 'hide my cards'} color="gray" />
             {table.guiUrl && <KeyHint k="O" label="open browser GUI" color="gray" />}
           </>
         )}
@@ -242,17 +246,17 @@ function Lobby({ view }: { view: TableView }) {
   );
 }
 
-function Seats({ view, now }: { view: TableView; now: number }) {
+function Seats({ view, now, hideCards }: { view: TableView; now: number; hideCards: boolean }) {
   return (
     <Box flexDirection="column">
       {view.seats.map((s) => (
-        <SeatRow key={s.id} seat={s} view={view} now={now} />
+        <SeatRow key={s.id} seat={s} view={view} now={now} hideCards={hideCards} />
       ))}
     </Box>
   );
 }
 
-function SeatRow({ seat: s, view, now }: { seat: SeatView; view: TableView; now: number }) {
+function SeatRow({ seat: s, view, now, hideCards }: { seat: SeatView; view: TableView; now: number; hideCards: boolean }) {
   const dim = s.folded || s.eliminated;
   const badge = s.isDealer ? 'D' : s.isSmallBlind ? 'SB' : s.isBigBlind ? 'BB' : '';
   const winner = view.phase !== 'playing' && s.isWinner && view.lastHand;
@@ -274,6 +278,7 @@ function SeatRow({ seat: s, view, now }: { seat: SeatView; view: TableView; now:
           {s.name}
           {s.isYou ? ' (you)' : ''}
           {!s.connected && !s.isBot ? ' ⚠' : ''}
+          {s.handsWon ? ` 🏆${s.handsWon > 1 ? s.handsWon : ''}` : ''}
         </Text>
       </Box>
       <Box width={8}>
@@ -286,7 +291,13 @@ function SeatRow({ seat: s, view, now }: { seat: SeatView; view: TableView; now:
           {s.eliminated ? 'out' : fmt(s.chips)}
         </Text>
       </Box>
-      <Box width={12}>{s.holeCards.length ? <Cards codes={s.holeCards} /> : <Text color="gray">{s.folded ? '  folded' : ''}</Text>}</Box>
+      <Box width={12}>
+        {s.holeCards.length ? (
+          <Cards codes={s.isYou && hideCards ? s.holeCards.map(() => null) : s.holeCards} />
+        ) : (
+          <Text color="gray">{s.folded ? '  folded' : ''}</Text>
+        )}
+      </Box>
       <Box width={8} justifyContent="flex-end">
         <Text color="yellowBright">{s.streetBet > 0 ? fmt(s.streetBet) : ''}</Text>
       </Box>
@@ -314,11 +325,17 @@ function Winners({ hand }: { hand: HandSummary }) {
 function Log({ lines }: { lines: string[] }) {
   return (
     <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-      {lines.slice(-6).map((line, i) => (
-        <Text key={i} color="gray" wrap="truncate">
-          {line}
-        </Text>
-      ))}
+      {lines.slice(-6).map((line, i) =>
+        / (wins|split) /.test(line) ? (
+          <Text key={i} color="yellowBright" bold wrap="truncate">
+            🏆 {line}
+          </Text>
+        ) : (
+          <Text key={i} color="gray" wrap="truncate">
+            {line}
+          </Text>
+        ),
+      )}
     </Box>
   );
 }
