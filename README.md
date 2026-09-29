@@ -64,6 +64,8 @@ Each bot has a personality: Tight-Aggressive, Loose-Aggressive, Tight-Passive (r
 - **Equity:** a Monte Carlo simulation (about 700 run-outs) of the bot's hand against hands drawn from those ranges.
 - **Pot odds:** the bot calls when equity ≥ `toCall / (pot + toCall)` plus a personality margin. It bets and raises for value above thresholds that scale with the number of opponents, and it bluffs at a personality-specific rate.
 
+The full walkthrough, with worked examples and every tuning constant, is in [docs/BOT.md](docs/BOT.md).
+
 ## Architecture
 
 ```

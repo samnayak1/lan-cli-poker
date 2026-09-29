@@ -32,7 +32,7 @@ async function startGui(conn: TableConnection, opts: CliOptions): Promise<WebSer
 }
 
 export async function launchSingle(name: string, opts: CliOptions): Promise<LaunchedTable> {
-  const session = new TableSession({ mode: 'single', tableName: 'Single player', localName: name, bots: 4, nextHandDelayMs: 4000 });
+  const session = new TableSession({ mode: 'single', tableName: 'Single player', localName: name, bots: 4 });
   const conn = new LocalConnection(session, session.localId);
   const web = await startGui(conn, opts);
   session.start();
@@ -55,7 +55,6 @@ export async function launchHost(name: string, opts: CliOptions, resume?: SaveFi
     resume,
     saves: new SaveManager(),
     turnTimeoutMs: 60_000,
-    nextHandDelayMs: 5000,
   });
   const server = new HostServer(session);
   try {

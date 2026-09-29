@@ -98,4 +98,4 @@ export interface TableView {
   message: string | null;
 }
 
-export type HostCommand = 'start' | 'addBot' | 'removeBot' | 'fillBots';
+export type HostCommand = 'start' | 'addBot' | 'removeBot' | 'fillBots' | 'nextHand' | 'restart';

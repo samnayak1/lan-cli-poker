@@ -46,11 +46,13 @@
     height: 100vh; height: 100dvh; overflow: hidden;
     display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
   }
+  /* The footer is its own coloured strip across the bottom of the page. */
   footer {
-    text-align: center; font-size: 12px; color: #f3f4f6; padding: 0 16px 6px;
-    text-shadow: 0 1px 3px rgba(0,0,0,.9);
+    display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 7px 16px; font-size: 13px; color: #f5efe0;
+    background: #134e4a; border-top: 2px solid #c9a14a;
   }
-  footer a { color: #fde68a; white-space: nowrap; }
+  footer a { color: #fcd34d; font-weight: 600; white-space: nowrap; }
   .defs { position: absolute; width: 0; height: 0; }
   /* The casino floor behind everything. */
   .casino { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
@@ -62,7 +64,7 @@
   }
   header { align-items: center; }
   header h1 { margin: 0; line-height: 0; }
-  .logo { height: 76px; width: auto; overflow: visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+  .logo { height: 62px; width: auto; overflow: visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
   .logo .bulb { fill: #ffe066; stroke: #b8860b; stroke-width: .6; }
   .logo .bulb:nth-child(odd) { animation: twinkle 1.1s steps(1) infinite; }
   .logo .bulb:nth-child(even) { animation: twinkle 1.1s steps(1) infinite .55s; }
@@ -71,11 +73,11 @@
   header .status { margin-left: auto; color: #e5e7eb; font-size: 14px; }
   header .status.off { color: #fca5a5; }
 
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 20px; padding: 4px 24px 6px; min-height: 0; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 20px; padding: 4px 24px 6px; min-height: 0; }
   section { display: flex; flex-direction: column; min-height: 0; }
   @media (max-width: 900px) {
     main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px; padding: 2px 12px 6px; }
-    footer { font-size: 11px; padding-bottom: 4px; }
+    footer { font-size: 11px; padding: 5px 12px; }
     header { padding: 8px 16px 2px; }
     .logo { height: 56px; }
     header .meta, header .status { font-size: 14px; }
@@ -87,7 +89,7 @@
   .stage { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
   .table-wrap {
     position: relative; aspect-ratio: 5 / 3;
-    width: max(200px, min(1100px, calc(100cqw - 200px), calc((100cqh - 160px) * 5 / 3)));
+    width: max(200px, min(1100px, calc(100cqw - 150px), calc((100cqh - 120px) * 5 / 3)));
   }
   @media (max-width: 640px) {
     .table-wrap { aspect-ratio: 4 / 5; width: max(160px, min(calc(100cqw - 104px), calc((100cqh - 130px) * 4 / 5))); }
@@ -98,11 +100,22 @@
     display: flex; flex-direction: column; align-items: center; gap: 8px; width: 64%;
   }
   @media (max-width: 640px) { .center { width: 84%; } }
-  .board { display: flex; gap: 6px; }
+  .board { display: flex; gap: 6px; perspective: 900px; }
   .slot { width: 60px; height: 84px; border: 1.5px dashed rgba(255,255,255,.85); border-radius: 6px; }
-  .pot { font-size: 18px; background: var(--slate); color: var(--slate-text); padding: 3px 14px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
-  .pot b { color: #fbbf24; }
-  .pot.bump { animation: bump .35s ease; }
+  .pot {
+    display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 10px; border-radius: 999px;
+    background: rgba(15,23,42,.6); box-shadow: 0 2px 8px rgba(0,0,0,.35);
+  }
+  .pot[hidden] { display: none; }
+  .pot .amount { font-size: 20px; font-weight: 800; color: #fbbf24; font-variant-numeric: tabular-nums; }
+  .pot.bump .stack { animation: bump .35s ease; }
+  /* A chip stack: each <i> is one chip seen slightly from the side. */
+  .stack { position: relative; flex: none; }
+  .stack i {
+    position: absolute; left: var(--x); bottom: var(--y); width: 24px; height: 9px; border-radius: 50%;
+    background: var(--c); border: 1.5px solid rgba(0,0,0,.45); box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .stack i::after { content: ""; position: absolute; inset: 1.5px 5px; border-radius: 50%; border: 1.5px dashed rgba(255,255,255,.8); }
   .banner {
     font-size: 16px; font-weight: 600; text-align: center; padding: 4px 12px; max-width: 100%;
     background: #fbbf24; color: #1f1400; border-radius: 8px; animation: fadeIn .4s ease both;
@@ -115,7 +128,6 @@
     border: 1px solid #cfcfcf; border-radius: 7px;
     box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.12);
     font-family: Georgia, "Times New Roman", serif; font-weight: 700;
-    animation: deal .35s ease both;
   }
   .card .idx { position: absolute; left: 5px; top: 4px; display: flex; flex-direction: column; align-items: center; line-height: .95; font-size: 19px; }
   .card .idx i { font-style: normal; font-size: 15px; }
@@ -154,8 +166,8 @@
     box-shadow: 0 4px 12px rgba(0,0,0,.35);
     transition: background .2s, box-shadow .2s, border-color .2s;
   }
-  .seat .plate { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; }
-  .seat .avatar svg { width: 46px; height: 46px; display: block; border-radius: 50%; box-shadow: 0 0 0 2px var(--slate-line); }
+  .seat .plate { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; }
+  .seat .avatar svg { width: 52px; height: 52px; display: block; border-radius: 50%; box-shadow: 0 0 0 2px var(--slate-line); }
   .seat.folded .avatar, .seat.out .avatar { filter: grayscale(1); opacity: .55; }
   .seat .name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .seat .chips { font-size: 15px; font-weight: 600; color: #fbbf24; }
@@ -164,7 +176,9 @@
   .seat .hand { font-size: 13px; color: #fde68a; }
   .seat.you .plate { border-color: #64748b; }
   .seat.turn .plate { background: #1e3a5f; border-color: #60a5fa; box-shadow: 0 0 0 2px #60a5fa, 0 0 18px rgba(96,165,250,.55); }
-  .seat.turn { animation: bob 1.6s ease-in-out infinite; }
+  .note.thinking { color: #93c5fd; }
+  .note.thinking::after { content: ""; animation: dots 1.2s steps(1) infinite; }
+  @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
   .seat.folded .plate, .seat.out .plate { background: var(--slate-2); color: #6b7a8f; }
   .seat.folded .plate .chips, .seat.folded .plate .note, .seat.out .plate .chips, .seat.out .plate .note { color: #6b7a8f; }
   .seat.winner .plate { background: #3d3108; border-color: #fbbf24; box-shadow: 0 0 0 2px #fbbf24, 0 0 22px rgba(251,191,36,.6); }
@@ -177,8 +191,8 @@
   .timer { height: 3px; background: var(--chip-blue); margin: 4px auto 0; transition: width .5s linear; border-radius: 2px; }
   @media (max-width: 640px) {
     .seat { width: 104px; font-size: 15px; }
-    .seat .plate { grid-template-columns: 28px minmax(0, 1fr); gap: 5px; padding: 11px 6px 5px; }
-    .seat .avatar svg { width: 28px; height: 28px; }
+    .seat .plate { grid-template-columns: 32px minmax(0, 1fr); gap: 5px; padding: 11px 6px 5px; }
+    .seat .avatar svg { width: 32px; height: 32px; }
     .seat .cards { height: 50px; margin-bottom: -9px; }
     .seat .plate { padding: 9px 4px 4px; }
     .seat .name { font-size: 13px; }
@@ -191,10 +205,15 @@
     position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 5px;
     font-size: 16px; animation: pop .25s ease; white-space: nowrap;
   }
-  .bet { font-size: 14px; font-weight: 600; }
-  .bet .amt { background: var(--slate); color: #fbbf24; padding: 1px 8px; border-radius: 999px; }
-  .chip { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--graphite); background: var(--chip-red); position: relative; }
-  .chip::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; border: 1.5px dashed #fff; }
+  .bet { font-size: 14px; font-weight: 700; }
+  .bet .amt { background: rgba(15,23,42,.7); color: #fbbf24; padding: 1px 8px; border-radius: 999px; }
+  /* Chips in flight between a seat, its bet and the pot. */
+  .flychip {
+    position: fixed; width: 20px; height: 20px; border-radius: 50%; z-index: 40; pointer-events: none;
+    border: 2px solid rgba(0,0,0,.4); box-shadow: 0 2px 5px rgba(0,0,0,.45);
+  }
+  .flychip::after { content: ""; position: absolute; inset: 2.5px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.85); }
+  .seat .cards { perspective: 600px; }
 
   /* ── Controls: only Fold / Call / Raise ─ */
   .controls {
@@ -202,10 +221,19 @@
     width: 100%; max-width: 1100px; margin: 0 auto; padding: 10px 14px;
     background: var(--slate); border: 1px solid var(--slate-line); border-radius: 14px;
     box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    overflow: hidden; /* the action buttons slide out through the bottom edge */
   }
   .hint { color: var(--slate-muted); min-height: 22px; }
   .hint b { color: #93c5fd; }
-  .right { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 16px; margin-left: auto; }
+  .right {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 16px; margin-left: auto;
+    transition: transform .4s cubic-bezier(.2, .8, .25, 1), opacity .3s ease, visibility 0s;
+  }
+  /* Not your turn: the buttons slide down out of the bar (still taking their space, so the bar keeps its height). */
+  .right.away {
+    transform: translateY(170%); opacity: 0; visibility: hidden; pointer-events: none;
+    transition: transform .35s ease-in, opacity .3s ease, visibility 0s .35s;
+  }
   .raise-row { display: flex; align-items: center; gap: 10px; }
   .raise-row[hidden] { display: none; }
   .raise-row input[type=range] { width: 190px; accent-color: var(--chip-blue); }
@@ -276,39 +304,31 @@
     animation: slideUp .25s ease; z-index: 20; max-width: calc(100% - 32px);
   }
 
-  /* ── Your turn: impossible to miss ──── */
-  body.my-turn::after {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 5;
-    box-shadow: inset 0 0 0 4px rgba(251,191,36,.95), inset 0 0 70px rgba(251,191,36,.5);
-    animation: edgePulse 1.3s ease-in-out infinite;
-  }
-  .controls.my-turn {
-    border: 2px solid #fbbf24; background: #3a2f0e;
-    animation: ctrlPulse 1.3s ease-in-out infinite;
-  }
-  .controls.my-turn .hint { color: #fde68a; font-size: 24px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  /* ── Your turn: a steady highlight ──── */
+  .controls.my-turn { border: 2px solid #fbbf24; background: #3a2f0e; }
+  .controls.my-turn .hint { color: #fde68a; font-size: 22px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
   .controls.my-turn .hint b { color: #fbbf24; }
-  .seat.you.turn .plate { background: #3d3108; border-color: #fbbf24; box-shadow: 0 0 0 3px #fbbf24, 0 0 28px rgba(251,191,36,.8); }
-  .turn-callout {
-    position: fixed; left: 50%; top: 42%; z-index: 30; pointer-events: none;
-    font: 900 clamp(40px, 9vw, 96px)/1 system-ui, sans-serif; letter-spacing: .06em; color: #fde68a;
-    text-shadow: 0 0 24px rgba(251,191,36,.9), 0 4px 0 #7c2d12, 0 8px 24px rgba(0,0,0,.8);
-    animation: callout 1.6s ease both; white-space: nowrap;
+  .seat.you.turn .plate { background: #3d3108; border-color: #fbbf24; box-shadow: 0 0 0 3px #fbbf24, 0 0 22px rgba(251,191,36,.6); }
+
+  /* ── Between hands: dim everything, press anywhere to continue ── */
+  #dim {
+    position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; text-align: center;
+    background: rgba(0,0,0,.62); opacity: 0; pointer-events: none; transition: opacity .35s ease;
   }
-  @keyframes callout {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
-    18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-    30% { transform: translate(-50%, -50%) scale(1); }
-    78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    100% { opacity: 0; transform: translate(-50%, -60%) scale(.96); }
+  #dim.show { opacity: 1; pointer-events: auto; cursor: pointer; }
+  #dim .summary { font-size: clamp(20px, 3.2vw, 32px); font-weight: 800; color: #fde68a; text-shadow: 0 2px 12px rgba(0,0,0,.8); max-width: 900px; }
+  #dim .press { margin-top: 18px; font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: #e5e7eb; }
+
+  /* ── Sound toggle ──── */
+  .icon-btn {
+    min-width: 0; padding: 5px 10px; font-size: 13px; font-weight: 600; border-radius: 999px;
+    background: rgba(15,23,42,.75); border: 1px solid var(--slate-line); box-shadow: none; text-shadow: none;
   }
-  @keyframes edgePulse { 50% { box-shadow: inset 0 0 0 4px rgba(251,191,36,.5), inset 0 0 30px rgba(251,191,36,.2); } }
-  @keyframes ctrlPulse { 50% { box-shadow: 0 0 0 4px rgba(251,191,36,.35), 0 0 30px rgba(251,191,36,.45); } }
+  .icon-btn[aria-pressed="false"] { color: var(--slate-muted); }
   @keyframes deal { from { opacity: 0; transform: translateY(-12px) rotate(-8deg); } to { opacity: 1; transform: none; } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes pop { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
   @keyframes bump { 50% { transform: scale(1.12) rotate(-2deg); } }
-  @keyframes bob { 50% { transform: translate(-50%, calc(-50% - 4px)); } }
   @keyframes highlight { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
   @keyframes slideUp { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translateX(-50%); } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -316,84 +336,15 @@
 </head>
 <body>
 
-<!-- The casino from above: our poker room in the middle, with the slots room, blackjack room and
-     bar visible through the doorways. People (photo faces on drawn bodies) are placed by drawCrowd(). -->
+<!-- One room: a homely poker room seen from above, zoomed in close on the table. People are placed by drawCrowd(). -->
 <svg class="casino" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
-    <!-- Poker room: ornate red casino carpet -->
-    <pattern id="carpetRich" width="96" height="96" patternUnits="userSpaceOnUse">
-      <rect width="96" height="96" fill="#760d1c"/>
-      <g fill="#1e2a5a" stroke="#d4a441" stroke-width="1.5">
-        <circle r="15"/><circle cx="96" r="15"/><circle cy="96" r="15"/><circle cx="96" cy="96" r="15"/>
-      </g>
-      <g fill="#e3b04b"><circle r="4"/><circle cx="96" r="4"/><circle cy="96" r="4"/><circle cx="96" cy="96" r="4"/></g>
-      <circle cx="48" cy="48" r="30" fill="#8f1628" stroke="#d4a441" stroke-width="2"/>
-      <circle cx="48" cy="48" r="21" fill="none" stroke="#1e2a5a" stroke-width="3"/>
-      <path d="M48 28 L54 48 L48 68 L42 48 Z M28 48 L48 42 L68 48 L48 54 Z" fill="#e3b04b"/>
-      <circle cx="48" cy="48" r="4.5" fill="#1e2a5a"/>
-      <path d="M22 8 Q48 20 74 8 M22 88 Q48 76 74 88 M8 22 Q20 48 8 74 M88 22 Q76 48 88 74" fill="none" stroke="#b8323f" stroke-width="2"/>
-      <g fill="#d4a441"><circle cx="48" cy="10" r="2.2"/><circle cx="48" cy="86" r="2.2"/><circle cx="10" cy="48" r="2.2"/><circle cx="86" cy="48" r="2.2"/></g>
+    <!-- Warm wooden floorboards -->
+    <pattern id="floorboards" width="240" height="30" patternUnits="userSpaceOnUse">
+      <rect width="240" height="30" fill="#a8744a"/>
+      <rect y="15" width="240" height="15" fill="#9d6b43"/>
+      <path d="M0 15 H240 M0 30 H240 M90 0 V15 M200 15 V30" stroke="#7d5232" stroke-width="1.2"/>
     </pattern>
-    <!-- Slots room: dark carpet with neon confetti -->
-    <pattern id="carpetSlots" width="70" height="70" patternUnits="userSpaceOnUse">
-      <rect width="70" height="70" fill="#1d1440"/>
-      <circle cx="12" cy="14" r="4" fill="#f472b6"/><circle cx="50" cy="22" r="3" fill="#22d3ee"/>
-      <circle cx="30" cy="52" r="3.5" fill="#fbbf24"/><circle cx="60" cy="58" r="2.5" fill="#a3e635"/>
-      <path d="M35 8 l3 7 7 1 -5 5 1 7 -6 -3 -6 3 1 -7 -5 -5 7 -1 z" fill="#c084fc" opacity=".8"/>
-    </pattern>
-    <!-- Blackjack room: deep teal with gold diamonds -->
-    <pattern id="carpetTeal" width="48" height="48" patternUnits="userSpaceOnUse">
-      <rect width="48" height="48" fill="#0e3b3c"/>
-      <path d="M24 6 L42 24 L24 42 L6 24 Z" fill="#11494a" stroke="#c9a14a" stroke-width="1" opacity=".9"/>
-      <circle cx="24" cy="24" r="2.5" fill="#c9a14a"/>
-    </pattern>
-    <!-- Bar and lounge: wood planks -->
-    <pattern id="planks" width="160" height="26" patternUnits="userSpaceOnUse">
-      <rect width="160" height="26" fill="#6b4226"/>
-      <rect y="13" width="160" height="13" fill="#62391f"/>
-      <path d="M0 13 H160 M0 26 H160 M60 0 V13 M130 13 V26" stroke="#3f2414" stroke-width="1.2"/>
-    </pattern>
-    <!-- Lobby: marble checkerboard -->
-    <pattern id="marble" width="60" height="60" patternUnits="userSpaceOnUse">
-      <rect width="60" height="60" fill="#e8e4dc"/><rect width="30" height="30" fill="#2a2a2e"/><rect x="30" y="30" width="30" height="30" fill="#2a2a2e"/>
-    </pattern>
-    <linearGradient id="slotScreen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f0abfc"/><stop offset=".5" stop-color="#fde68a"/><stop offset="1" stop-color="#67e8f9"/>
-    </linearGradient>
-    <radialGradient id="slotGlow"><stop offset="0" stop-color="#d946ef" stop-opacity=".6"/><stop offset="1" stop-color="#d946ef" stop-opacity="0"/></radialGradient>
-    <radialGradient id="lamp"><stop offset="0" stop-color="#ffd98a" stop-opacity=".5"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>
-    <radialGradient id="darkness" cx="45%" cy="52%" r="62%">
-      <stop offset="0" stop-color="#000" stop-opacity="0"/>
-      <stop offset=".42" stop-color="#000" stop-opacity=".3"/>
-      <stop offset="1" stop-color="#000" stop-opacity=".68"/>
-    </radialGradient>
-
-    <symbol id="slot-top" viewBox="0 0 130 80">
-      <ellipse cx="46" cy="40" rx="54" ry="44" fill="url(#slotGlow)"/>
-      <rect x="4" y="5" width="80" height="70" rx="8" fill="#3b0f6e"/>
-      <rect x="9" y="10" width="70" height="60" rx="6" fill="#7c3aed"/>
-      <rect x="16" y="16" width="36" height="48" rx="5" fill="#5b21b6"/>
-      <circle cx="34" cy="40" r="10" fill="#f5d0fe"/><circle cx="34" cy="40" r="5" fill="#e879f9"/>
-      <rect x="58" y="14" width="16" height="52" rx="3" fill="url(#slotScreen)"/>
-      <rect x="84" y="33" width="9" height="14" rx="2" fill="#c4b5fd"/>
-      <circle cx="112" cy="40" r="14" fill="#1c1917"/><circle cx="112" cy="40" r="10" fill="#b91c1c"/>
-    </symbol>
-    <symbol id="blackjack" viewBox="-28 -14 356 210">
-      <path d="M0 8 A150 150 0 0 0 300 8 Z" fill="#5b3419"/>
-      <path d="M14 10 A136 136 0 0 0 286 10 Z" fill="#177245"/>
-      <path d="M44 12 A106 106 0 0 0 256 12" fill="none" stroke="#e7c35a" stroke-width="1.5" opacity=".7"/>
-      <rect x="112" y="12" width="76" height="16" rx="3" fill="#1c1917"/>
-      <g><rect x="117" y="15" width="10" height="10" fill="#dc2626"/><rect x="130" y="15" width="10" height="10" fill="#2563eb"/>
-        <rect x="143" y="15" width="10" height="10" fill="#16a34a"/><rect x="156" y="15" width="10" height="10" fill="#f5f5f4"/><rect x="169" y="15" width="10" height="10" fill="#111"/></g>
-      <g fill="none" stroke="#fff" stroke-width="1.5" opacity=".75">
-        <circle cx="236.6" cy="58" r="10"/><circle cx="200" cy="94.6" r="10"/><circle cx="150" cy="108" r="10"/>
-        <circle cx="100" cy="94.6" r="10"/><circle cx="63.4" cy="58" r="10"/>
-      </g>
-      <g fill="#1c1917"><circle cx="309.7" cy="66.1" r="15"/><circle cx="247.5" cy="147.3" r="15"/><circle cx="150" cy="178" r="15"/>
-        <circle cx="52.5" cy="147.3" r="15"/><circle cx="-9.7" cy="66.1" r="15"/></g>
-      <g fill="#b91c1c"><circle cx="309.7" cy="66.1" r="10"/><circle cx="247.5" cy="147.3" r="10"/><circle cx="150" cy="178" r="10"/>
-        <circle cx="52.5" cy="147.3" r="10"/><circle cx="-9.7" cy="66.1" r="10"/></g>
-    </symbol>
     <symbol id="palm" viewBox="-50 -50 100 100">
       <g fill="#2f855a"><ellipse rx="44" ry="10"/><ellipse rx="44" ry="10" transform="rotate(45)"/>
         <ellipse rx="44" ry="10" transform="rotate(90)"/><ellipse rx="44" ry="10" transform="rotate(135)"/></g>
@@ -461,63 +412,58 @@
       <path d="M41 26 Q46 34 40 44" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
       <text x="30" y="78" font-size="6" font-weight="700" fill="#fbbf24" text-anchor="middle" font-family="system-ui, sans-serif">SECURITY</text>
     </symbol>
+
+    <!-- Couch from above: backrest, arms, three seat cushions, cushions and a throw -->
+    <symbol id="couch" viewBox="0 0 300 116">
+      <rect width="300" height="116" rx="20" fill="#4f6f55"/>
+      <rect width="300" height="36" rx="18" fill="#5d7f63"/>
+      <rect y="8" width="36" height="108" rx="16" fill="#5a7a60"/>
+      <rect x="264" y="8" width="36" height="108" rx="16" fill="#5a7a60"/>
+      <rect x="40" y="36" width="70" height="72" rx="10" fill="#7fa586"/>
+      <rect x="115" y="36" width="70" height="72" rx="10" fill="#7fa586"/>
+      <rect x="190" y="36" width="70" height="72" rx="10" fill="#7fa586"/>
+      <rect x="46" y="30" width="40" height="28" rx="9" fill="#e0a43a" transform="rotate(-10 66 44)"/>
+      <rect x="214" y="30" width="40" height="28" rx="9" fill="#c2552f" transform="rotate(9 234 44)"/>
+      <path d="M150 36 H186 V108 H150 Q160 80 150 36 Z" fill="#e7dcc6" opacity=".9"/>
+    </symbol>
+    <symbol id="coffee-table" viewBox="0 0 160 90">
+      <rect width="160" height="90" rx="14" fill="#6b4226"/>
+      <rect x="8" y="8" width="144" height="74" rx="10" fill="#7d5232"/>
+      <circle cx="44" cy="44" r="11" fill="#f5f0e6" stroke="#b45309" stroke-width="3"/>
+      <rect x="84" y="24" width="48" height="36" rx="3" fill="#2563eb" transform="rotate(-8 108 42)"/>
+      <rect x="90" y="30" width="36" height="24" rx="2" fill="#dbeafe" transform="rotate(-8 108 42)"/>
+    </symbol>
+    <symbol id="floor-lamp" viewBox="-40 -40 80 80">
+      <circle r="36" fill="#f5e6c4"/><circle r="36" fill="none" stroke="#c9a46a" stroke-width="4"/><circle r="6" fill="#8a6a3a"/>
+    </symbol>
+    <symbol id="bookshelf" viewBox="0 0 60 320">
+      <rect width="60" height="320" rx="6" fill="#5b3a22"/>
+      <g id="books"></g>
+    </symbol>
   </defs>
 
-  <!-- floors: lobby marble underneath, a room on each side of ours -->
-  <rect x="0" y="0" width="1600" height="1000" fill="url(#marble)"/>
-  <rect x="0" y="0" width="250" height="1000" fill="url(#carpetSlots)"/>
-  <rect x="250" y="0" width="800" height="170" fill="url(#carpetTeal)"/>
-  <rect x="1050" y="0" width="550" height="170" fill="url(#planks)"/>
-  <rect x="1350" y="170" width="250" height="760" fill="url(#planks)"/>
-  <rect x="250" y="170" width="1100" height="760" fill="url(#carpetRich)"/>
-  <rect x="266" y="186" width="1068" height="728" fill="none" stroke="#1e2a5a" stroke-width="10"/>
-  <rect x="266" y="186" width="1068" height="728" fill="none" stroke="#d4a441" stroke-width="2"/>
+  <!-- floor, a plain rug under the table, walls -->
+  <rect width="1600" height="1000" fill="url(#floorboards)"/>
+  <rect x="150" y="150" width="1300" height="730" rx="40" fill="#9c3d2c"/>
+  <rect x="170" y="170" width="1260" height="690" rx="30" fill="none" stroke="#b9553f" stroke-width="6"/>
+  <rect x="12" y="12" width="1576" height="976" fill="none" stroke="#efe4cf" stroke-width="24"/>
+  <rect x="24" y="24" width="1552" height="952" fill="none" stroke="#8a6a4a" stroke-width="3"/>
 
-  <!-- slots room -->
-  <g id="slotsLeft"></g>
-  <!-- blackjack room: dealers stand behind their tables -->
-  <g id="behindTables"></g>
-  <use href="#blackjack" x="300" y="44" width="180" height="106"/>
-  <use href="#blackjack" x="560" y="44" width="180" height="106"/>
-  <use href="#blackjack" x="820" y="44" width="180" height="106"/>
-  <!-- bar: back shelf with bottles, bartender, counter, stools -->
-  <rect x="1080" y="6" width="500" height="26" fill="#3f2414"/>
-  <g id="bottles"></g>
-  <g id="behindBar"></g>
-  <rect x="1100" y="46" width="470" height="30" rx="6" fill="#4a2a17" stroke="#c9a14a" stroke-width="2"/>
-  <g id="barStools"></g>
-  <!-- lounge -->
-  <use href="#cocktail-table" x="1400" y="330" width="80" height="80"/>
-  <use href="#cocktail-table" x="1480" y="560" width="80" height="80"/>
-
-  <!-- walls, with doorways between the rooms -->
-  <g fill="#150a0e" stroke="#c9a14a" stroke-width="2">
-    <path d="M250 158 H520 V182 H250 Z M640 158 H960 V182 H640 Z M1080 158 H1350 V182 H1080 Z"/>
-    <path d="M238 170 H262 V420 H238 Z M238 560 H262 V930 H238 Z"/>
-    <path d="M1338 170 H1362 V420 H1338 Z M1338 560 H1362 V930 H1338 Z"/>
-    <path d="M1038 0 H1062 V60 H1038 Z M1038 130 H1062 V170 H1038 Z"/>
-    <path d="M238 918 H700 V942 H238 Z M900 918 H1362 V942 H900 Z"/>
-  </g>
-
-  <!-- poker room decor, well away from our table -->
-  <use href="#palm" x="262" y="182" width="90" height="90"/>
-  <use href="#palm" x="1248" y="182" width="90" height="90"/>
-  <use href="#palm" x="262" y="826" width="90" height="90"/>
-  <use href="#palm" x="1248" y="826" width="90" height="90"/>
-  <use href="#cocktail-table" x="300" y="760" width="70" height="70"/>
-  <use href="#cocktail-table" x="1150" y="760" width="70" height="70"/>
+  <!-- the homely bits -->
+  <use href="#couch" x="620" y="30" width="360" height="139"/>
+  <use href="#couch" x="-83" y="385" width="330" height="128" transform="rotate(90 82 449)"/>
+  <use href="#coffee-table" x="30" y="660" width="120" height="68"/>
+  <use href="#floor-lamp" x="555" y="30" width="60" height="60"/>
+  <use href="#floor-lamp" x="985" y="30" width="60" height="60"/>
+  <use href="#bookshelf" x="1520" y="260" width="50" height="270"/>
+  <use href="#palm" x="34" y="34" width="120" height="120"/>
+  <use href="#palm" x="1446" y="34" width="120" height="120"/>
+  <use href="#palm" x="34" y="846" width="120" height="120"/>
+  <use href="#palm" x="1446" y="846" width="120" height="120"/>
+  <use href="#cocktail-table" x="1450" y="600" width="90" height="90"/>
 
   <g id="crowd"></g>
-
-  <!-- dim lighting: brightest over our table, warm lamps in the other rooms -->
-  <rect width="1600" height="1000" fill="url(#darkness)"/>
-  <g fill="url(#lamp)">
-    <circle cx="390" cy="80" r="120"/><circle cx="650" cy="80" r="120"/><circle cx="910" cy="80" r="120"/>
-    <circle cx="1320" cy="70" r="150"/><circle cx="110" cy="300" r="130"/><circle cx="110" cy="700" r="130"/>
-    <circle cx="1470" cy="480" r="150"/>
-  </g>
 </svg>
-
 <header>
   <h1>
     <!-- Styled after the "Welcome to Fabulous Las Vegas" sign -->
@@ -545,6 +491,7 @@
   </h1>
   <span class="meta" id="meta">connecting…</span>
   <span class="status" id="status">connecting…</span>
+  <button class="icon-btn" id="soundBtn" aria-pressed="true" title="Sound on/off">Sound</button>
 </header>
 
 <main>
@@ -567,7 +514,7 @@
         </svg>
         <div class="center">
           <div class="board" id="board"></div>
-          <div class="pot" id="pot">Pot: <b>0</b></div>
+          <div class="pot" id="pot" hidden><div class="stack" id="potStack"></div><span class="amount" id="potAmount">0</span></div>
           <div class="banner" id="banner" hidden></div>
         </div>
       </div>
@@ -575,7 +522,7 @@
 
     <div class="controls" id="controls">
       <div class="hint" id="hint">Waiting for the table…</div>
-      <div class="right">
+      <div class="right away" id="actions">
         <div class="raise-row" id="raiseRow" hidden>
           <input type="range" id="range" aria-label="Raise amount">
           <input type="number" id="amount" aria-label="Raise to">
@@ -595,7 +542,9 @@
   </aside>
 </main>
 
-<footer>Any problems or want to contribute? Contact <a href="mailto:ww-developer@protonmail.com">ww-developer@protonmail.com</a></footer>
+<footer><span>Any problems or want to contribute?</span><span>Contact <a href="mailto:ww-developer@protonmail.com">ww-developer@protonmail.com</a></span></footer>
+
+<div id="dim" aria-live="polite"><div><div class="summary" id="dimSummary"></div><div class="press" id="dimPress"></div></div></div>
 
 <div class="overlay" id="overlay" hidden><div class="dialog" id="dialog"></div></div>
 
@@ -612,6 +561,7 @@ let view = null;
 let raiseTo = 0;
 let raiseKey = '';
 let lastPot = 0;
+let dimTimer = null;
 let deadlineSeen = null;
 let deadlineTotal = 1;
 
@@ -646,56 +596,259 @@ function toast(message) {
   setTimeout(() => el.remove(), 3000);
 }
 
+function paintCard(el, code) {
+  el.classList.toggle('back', !code);
+  el.classList.toggle('red', !!code && (code[1] === 'h' || code[1] === 'd'));
+  el.dataset.code = code || '';
+  if (!code) return void (el.innerHTML = '');
+  const suit = SUITS[code[1]];
+  el.innerHTML = `<span class="idx">${code[0] === 'T' ? '10' : code[0]}<i>${suit}</i></span><span class="pip">${suit}</span>`;
+}
+
 function cardEl(code, small) {
   const el = document.createElement('div');
   el.className = 'card' + (small ? ' small' : '');
-  if (!code) el.classList.add('back');
-  else {
-    if (code[1] === 'h' || code[1] === 'd') el.classList.add('red');
-    const suit = SUITS[code[1]];
-    el.innerHTML = `<span class="idx">${code[0] === 'T' ? '10' : code[0]}<i>${suit}</i></span><span class="pip">${suit}</span>`;
-  }
+  paintCard(el, code);
   return el;
 }
 
-/** Only (re)creates cards that changed, so the deal animation plays for new cards only. */
+/**
+ * Only (re)creates cards that changed. Returns them as { el, code, prevCode, replaced }:
+ * `replaced` cards took the place of another card (a reveal or a fold), the rest are newly dealt.
+ */
 function syncCards(container, codes, keyPrefix, small, slots = 0) {
   const keys = codes.map((c, i) => `${keyPrefix}:${i}:${c || 'x'}`);
-  const current = [...container.querySelectorAll('.card')].map((el) => el.dataset.key);
+  const existing = [...container.querySelectorAll('.card')];
+  const current = existing.map((el) => el.dataset.key);
   if (keys.join() === current.join() && container.children.length === Math.max(slots, keys.length)) return [];
   let same = 0;
   while (same < keys.length && keys[same] === current[same]) same++;
-  container.replaceChildren(...[...container.querySelectorAll('.card')].slice(0, same));
+  container.replaceChildren(...existing.slice(0, same));
+  const changed = [];
   for (let i = same; i < keys.length; i++) {
     const el = cardEl(codes[i], small);
     el.dataset.key = keys[i];
-    el.style.animationDelay = `${(i - same) * 90}ms`;
     container.append(el);
+    const prev = existing[i];
+    const replaced = !!prev && prev.dataset.key.split(':')[0] === keyPrefix;
+    changed.push({ el, code: codes[i], prevCode: prev?.dataset.code || null, replaced });
   }
   for (let i = keys.length; i < slots; i++) {
     const s = document.createElement('div');
     s.className = 'slot';
     container.append(s);
   }
-  return [...container.querySelectorAll('.card')].slice(same);
+  return changed;
 }
 
-function drawCasino() {
-  const NS = 'http://www.w3.org/2000/svg';
-  const add = (parent, tag, attrs) => {
-    const e = document.createElementNS(NS, tag);
-    for (const k in attrs) e.setAttribute(k, attrs[k]);
-    $(parent).append(e);
+// ── Motion helpers ──────────────────────────────────────────
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const centerOf = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+const CHIP_COLORS = ['#dc2626', '#2563eb', '#16a34a', '#111827', '#f5f5f4'];
+
+/** Card turns over (edge-on halfway) and lands showing `code` (null = face down). */
+function flipTo(el, code, delay = 0) {
+  if (reducedMotion()) return paintCard(el, code);
+  const out = el.animate([{ transform: 'rotateY(0deg)' }, { transform: 'rotateY(90deg)' }],
+    { duration: 150, delay, easing: 'ease-in', fill: 'forwards' });
+  out.onfinish = () => {
+    paintCard(el, code);
+    out.cancel();
+    el.animate([{ transform: 'rotateY(-90deg)' }, { transform: 'rotateY(0deg)' }], { duration: 150, easing: 'ease-out' });
   };
-  for (let y = 190; y < 960; y += 78) add('slotsLeft', 'use', { href: '#slot-top', x: 10, y, width: 130, height: 80 });
-  const bottle = ['#65a30d', '#b45309', '#1d4ed8', '#be123c', '#f5f5f4', '#7c2d12', '#0f766e'];
-  for (let x = 1092, k = 0; x < 1572; x += 13, k++) add('bottles', 'circle', { cx: x, cy: 19, r: 5, fill: bottle[k % bottle.length] });
-  for (let x = 1140; x < 1560; x += 60) {
-    add('barStools', 'circle', { cx: x, cy: 96, r: 13, fill: '#1c1917' });
-    add('barStools', 'circle', { cx: x, cy: 96, r: 9, fill: '#b91c1c' });
+}
+
+/** Card slides face-down from `from` to where it sits, then flips up if it has a `code`. */
+function dealIn(el, from, delay, code) {
+  sound.card(delay);
+  if (reducedMotion() || !from) return;
+  paintCard(el, null);
+  const a = centerOf(from);
+  const b = centerOf(el.getBoundingClientRect());
+  el.animate(
+    [
+      { transform: `translate(${a.x - b.x}px, ${a.y - b.y}px) rotate(-25deg) scale(.6)`, opacity: 0 },
+      { opacity: 1, offset: 0.2 },
+      { transform: 'none', opacity: 1 },
+    ],
+    { duration: 460, delay, easing: 'cubic-bezier(.2, .8, .25, 1)', fill: 'backwards' },
+  ).onfinish = () => code && flipTo(el, code);
+}
+
+/** Folded cards turn face down and slide into the middle of the table. */
+function foldAway(seatEl, to) {
+  if (reducedMotion()) return;
+  const b = centerOf(to);
+  [...seatEl.querySelectorAll('.cards .card')].forEach((card, i) => {
+    const r = card.getBoundingClientRect();
+    const ghost = card.cloneNode(true);
+    Object.assign(ghost.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, margin: '0', zIndex: '35', pointerEvents: 'none' });
+    document.body.append(ghost);
+    if (!ghost.classList.contains('back')) flipTo(ghost, null);
+    const a = centerOf(r);
+    ghost.animate(
+      [
+        { transform: 'none', opacity: 1 },
+        { transform: `translate(${(b.x - a.x) * 0.7}px, ${(b.y - a.y) * 0.7}px) rotate(${i ? 35 : -35}deg) scale(.7)`, opacity: 0 },
+      ],
+      { duration: 650, delay: 200 + i * 50, easing: 'ease-in', fill: 'forwards' },
+    ).onfinish = () => ghost.remove();
+  });
+}
+
+/** A few chips fly from one place to another. */
+function flyChips(from, to, count, delay = 0) {
+  if (!from || !to || reducedMotion()) return;
+  const a = centerOf(from);
+  const b = centerOf(to);
+  for (let k = 0; k < count; k++) {
+    const chip = document.createElement('div');
+    chip.className = 'flychip';
+    chip.style.background = CHIP_COLORS[k % CHIP_COLORS.length];
+    chip.style.left = `${a.x - 10}px`;
+    chip.style.top = `${a.y - 10}px`;
+    document.body.append(chip);
+    const dx = b.x - a.x + (Math.random() - 0.5) * 16;
+    const dy = b.y - a.y + (Math.random() - 0.5) * 10;
+    chip.animate(
+      [
+        { transform: 'translate(0, 0) scale(.6)', opacity: 0 },
+        { opacity: 1, offset: 0.12 },
+        { transform: `translate(${dx}px, ${dy}px)`, opacity: 1, offset: 0.88 },
+        { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 },
+      ],
+      { duration: 560, delay: delay + k * 60, easing: 'cubic-bezier(.3, .7, .3, 1)', fill: 'both' },
+    ).onfinish = () => chip.remove();
   }
 }
-drawCasino();
+
+/** Chip-stack markup sized to the amount (more chips for bigger amounts). */
+function chipStack(el, amount, bigBlind, maxChips) {
+  const n = amount > 0 ? Math.min(maxChips, Math.max(1, Math.ceil(Math.log2(amount / bigBlind + 1) * 1.6))) : 0;
+  const perCol = 5;
+  const cols = Math.ceil(n / perCol);
+  el.style.width = `${Math.max(1, cols) * 16 + 10}px`;
+  el.style.height = `${Math.min(n, perCol) * 5 + 10}px`;
+  el.innerHTML = Array.from({ length: n }, (_, k) => {
+    const col = Math.floor(k / perCol);
+    return `<i style="--x:${col * 16}px;--y:${(k % perCol) * 5}px;--c:${CHIP_COLORS[col % CHIP_COLORS.length]}"></i>`;
+  }).join('');
+}
+
+// ── Sound: synthesised with Web Audio, so no audio files ship ──────────
+const sound = {
+  on: (() => { try { return localStorage.getItem('sound') !== 'off'; } catch { return true; } })(),
+  ctx: null,
+  unlock() {
+    if (!this.on) return;
+    try {
+      this.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch { /* no audio available */ }
+  },
+  ready() { return this.on && this.ctx && this.ctx.state === 'running'; },
+  at(delayMs) { return this.ctx.currentTime + delayMs / 1000; },
+  noise(seconds) {
+    const buf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * seconds), this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  },
+  /** Plays `node` through a quick attack / exponential decay envelope. */
+  env(node, t, peak, decay) {
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+    node.connect(g).connect(this.ctx.destination);
+  },
+  /** A card snapping onto the felt. */
+  card(delayMs = 0) {
+    if (!this.ready()) return;
+    const t = this.at(delayMs);
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise(0.08);
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 1800;
+    src.connect(f);
+    this.env(f, t, 0.35, 0.07);
+    src.start(t);
+  },
+  /** Chips clicking together. */
+  chips(count = 3, delayMs = 0) {
+    if (!this.ready()) return;
+    for (let i = 0; i < count; i++) {
+      const t = this.at(delayMs + i * 55 + Math.random() * 20);
+      for (const freq of [2600 + Math.random() * 1400, 5200 + Math.random() * 1500]) {
+        const o = this.ctx.createOscillator();
+        o.frequency.value = freq;
+        this.env(o, t, 0.07, 0.09);
+        o.start(t);
+        o.stop(t + 0.1);
+      }
+    }
+  },
+  /** Cards swooshing away. */
+  fold(delayMs = 0) {
+    if (!this.ready()) return;
+    const t = this.at(delayMs);
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise(0.35);
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 1.2;
+    f.frequency.setValueAtTime(700, t);
+    f.frequency.exponentialRampToValueAtTime(3200, t + 0.28);
+    src.connect(f);
+    this.env(f, t, 0.3, 0.3);
+    src.start(t);
+  },
+  /** Two knocks on the table for a check. */
+  knock(delayMs = 0) {
+    if (!this.ready()) return;
+    for (const k of [0, 0.13]) {
+      const t = this.at(delayMs) + k;
+      const o = this.ctx.createOscillator();
+      o.frequency.setValueAtTime(170, t);
+      o.frequency.exponentialRampToValueAtTime(70, t + 0.08);
+      this.env(o, t, 0.4, 0.1);
+      o.start(t);
+      o.stop(t + 0.12);
+    }
+  },
+  /** A chip cascade and a rising chime. */
+  win(delayMs = 0) {
+    if (!this.ready()) return;
+    this.chips(8, delayMs);
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+      const t = this.at(delayMs + 120 + i * 110);
+      const o = this.ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      this.env(o, t, 0.16, i === 3 ? 0.6 : 0.25);
+      o.start(t);
+      o.stop(t + 0.7);
+    });
+  },
+};
+const SPEAKER = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:5px">'
+  + '<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>';
+function paintSoundButton() {
+  $('soundBtn').innerHTML = sound.on
+    ? `${SPEAKER}<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Sound`
+    : `${SPEAKER}<path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Muted`;
+  $('soundBtn').setAttribute('aria-pressed', String(sound.on));
+}
+$('soundBtn').onclick = () => {
+  sound.on = !sound.on;
+  try { localStorage.setItem('sound', sound.on ? 'on' : 'off'); } catch { /* not persisted */ }
+  sound.unlock();
+  paintSoundButton();
+};
+paintSoundButton();
+// Browsers only allow audio after a user gesture.
+for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => sound.unlock(), { passive: true });
 
 /**
  * Guests and staff: photo faces (CC0, see public/people/CREDITS.md) on drawn bodies.
@@ -709,6 +862,21 @@ const FACES = {
   'face-10': [100, 160, '#f5d3bb'], 'face-11': [127, 160, '#ecc3a3'], 'face-12': [148, 160, '#6e4127'],
   'face-13': [137, 160, '#f0cfae'], 'face-14': [162, 160, '#b27650'], 'face-15': [134, 160, '#b98260'],
 };
+(function fillBookshelf() {
+  const colors = ['#b91c1c', '#1d4ed8', '#15803d', '#ca8a04', '#7c3aed', '#0f766e', '#be185d'];
+  const books = document.getElementById('books');
+  for (let y = 8, k = 0; y < 310; y += 14, k++) {
+    const b = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    b.setAttribute('x', String(6 + (k % 3) * 2));
+    b.setAttribute('y', String(y));
+    b.setAttribute('width', String(44 - (k % 4) * 4));
+    b.setAttribute('height', '11');
+    b.setAttribute('rx', '2');
+    b.setAttribute('fill', colors[k % colors.length]);
+    books.append(b);
+  }
+})();
+
 (function drawCrowd() {
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, attrs, parent) => {
@@ -720,7 +888,7 @@ const FACES = {
   /** Feet at (x, y), `h` tall. Body colours: c1 top, c2 bottom, tie. `flip` mirrors the face only. */
   const person = (group, face, body, x, y, height, colors = {}, flip = false) => {
     const [fw, fh, skin] = FACES[face];
-    const h = height * 1.15;
+    const h = height;
     const unit = h / 150;
     const bodyWidth = (body === 'b-waitress' ? 70 : 60) * unit;
     const g = el('g', {}, $(group));
@@ -737,25 +905,19 @@ const FACES = {
     }, g);
   };
 
-  // Staff: dealers behind the blackjack tables, a bartender behind the bar,
-  // waitresses carrying drinks, and security by the doors.
-  person('behindTables', 'face-01', 'b-dealer', 390, 84, 76);
-  person('behindTables', 'face-07', 'b-dealer', 650, 84, 76, { tie: '#7c3aed' });
-  person('behindTables', 'face-13', 'b-dealer', 910, 84, 76);
-  person('behindBar', 'face-09', 'b-dealer', 1330, 74, 70, { tie: '#0f766e' });
-  person('crowd', 'face-02', 'b-waitress', 300, 250, 118);
-  person('crowd', 'face-10', 'b-waitress', 1250, 862, 118, {}, true);
-  person('crowd', 'face-15', 'b-security', 205, 575, 128);
-  person('crowd', 'face-11', 'b-security', 1020, 250, 122, {}, true);
-
-  // Guests: at the slots, leaning on the bar, chatting by the cocktail tables.
-  person('crowd', 'face-03', 'b-casual', 172, 455, 120, { c1: '#ec4899', c2: '#1e3a8a' });
-  person('crowd', 'face-05', 'b-dress', 170, 760, 120, { c1: '#16a34a' }, true);
-  person('crowd', 'face-06', 'b-dress', 1190, 168, 112, { c1: '#0ea5e9' });
-  person('crowd', 'face-12', 'b-dress', 1265, 168, 112, { c1: '#f59e0b' }, true);
-  person('crowd', 'face-08', 'b-casual', 300, 862, 116, { c1: '#f97316', c2: '#1f2937' });
-  person('crowd', 'face-04', 'b-suit', 386, 866, 118, { c1: '#334155', c2: '#1e293b', tie: '#e11d48' }, true);
-  person('crowd', 'face-14', 'b-dress', 1110, 862, 116, { c1: '#a855f7' });
+  // Friends and a couple of hosts around the edges of the room, well away from the table.
+  person('crowd', 'face-02', 'b-waitress', 330, 176, 150);
+  person('crowd', 'face-09', 'b-casual', 1180, 172, 150, { c1: '#b45309', c2: '#374151' }, true);
+  person('crowd', 'face-11', 'b-casual', 1260, 180, 152, { c1: '#65a30d', c2: '#1f2937' }, true);
+  person('crowd', 'face-12', 'b-dress', 520, 186, 126, { c1: '#f59e0b' });
+  person('crowd', 'face-06', 'b-dress', 1080, 186, 126, { c1: '#0ea5e9' }, true);
+  person('crowd', 'face-03', 'b-casual', 205, 300, 140, { c1: '#ec4899', c2: '#1e3a8a' });
+  person('crowd', 'face-15', 'b-casual', 205, 660, 142, { c1: '#0ea5e9', c2: '#334155' });
+  person('crowd', 'face-05', 'b-dress', 110, 900, 150, { c1: '#16a34a' }, true);
+  person('crowd', 'face-08', 'b-casual', 230, 930, 150, { c1: '#f97316', c2: '#1f2937' });
+  person('crowd', 'face-04', 'b-suit', 1300, 930, 150, { c1: '#334155', c2: '#1e293b', tie: '#e11d48' }, true);
+  person('crowd', 'face-14', 'b-dress', 1400, 910, 150, { c1: '#a855f7' });
+  person('crowd', 'face-10', 'b-waitress', 1500, 620, 150, {}, true);
 })();
 
 /** Marquee bulbs around the logo's diamond. */
@@ -774,46 +936,129 @@ const FACES = {
   }
 })();
 
-/** Every player at the table: a bald cartoon kid with glasses and a deadpan poker face. */
+/*
+ * Player avatars: head and shoulders, everyone in sunglasses with a poker face.
+ * Each look is put together from a few parts: build, hair, skin tone and a jersey pattern.
+ */
 const SHIRTS = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
-function avatarSvg(shirt) {
-  return `<svg viewBox="0 0 64 64" aria-hidden="true">
-    <circle cx="32" cy="32" r="32" fill="#0f172a"/>
-    <path d="M7 64 Q9 45 32 45 Q55 45 57 64 Z" fill="${shirt}"/>
-    <path d="M24 46 L32 53 L40 46" fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
-    <ellipse cx="14.5" cy="30" rx="4" ry="5.5" fill="#f2c4a0"/><ellipse cx="49.5" cy="30" rx="4" ry="5.5" fill="#f2c4a0"/>
-    <ellipse cx="32" cy="28" rx="17" ry="19" fill="#f8d4b4"/>
-    <ellipse cx="25" cy="15" rx="5.5" ry="2.6" fill="#fff" opacity=".5"/>
-    <path d="M20 21.5 H28 M36 21.5 H44" stroke="#8a5a3b" stroke-width="1.8" stroke-linecap="round"/>
-    <g fill="rgba(255,255,255,.28)" stroke="#111" stroke-width="2">
-      <rect x="18.5" y="24.5" width="11" height="8" rx="2"/><rect x="34.5" y="24.5" width="11" height="8" rx="2"/>
-    </g>
-    <path d="M29.5 28 H34.5 M18.5 27 L15 25.5 M45.5 27 L49 25.5" stroke="#111" stroke-width="2"/>
-    <circle cx="24" cy="28.6" r="1.6" fill="#111"/><circle cx="40" cy="28.6" r="1.6" fill="#111"/>
-    <path d="M32 30 Q34.5 34 31 35" fill="none" stroke="#d99a7a" stroke-width="1.4"/>
-    <path d="M26 40.5 H38" stroke="#7a3b2e" stroke-width="2" stroke-linecap="round"/>
-  </svg>`;
+
+/** The bots, by name. Anyone else gets a plain look in their seat colour. */
+const PLAYER_LOOKS = {
+  martin: { skin: '#f1c7a5', hair: 'bald', build: 'buff', jersey: { pattern: 'sash', colors: ['#111111', '#facc15'] } },
+  ablett: { skin: '#f0c4a0', hair: 'bald', build: 'heavy', jersey: { pattern: 'hoops', colors: ['#1e2a5a', '#ffffff'] } },
+  ashcroft: { skin: '#f3cdb0', hair: 'mullet', hairColor: '#e2b33c', build: 'normal', jersey: { pattern: 'yoke', colors: ['#6d28d9', '#1d4ed8'] } },
+  franklin: { skin: '#b07a52', hair: 'bald', build: 'tall', jersey: { pattern: 'stripes', colors: ['#5b3a1a', '#facc15'] } },
+  selwood: { skin: '#f2c9a8', hair: 'short', hairColor: '#6b4423', build: 'lean', jersey: { pattern: 'hoops', colors: ['#1e2a5a', '#ffffff'] } },
+  bontempelli: { skin: '#efc3a0', hair: 'swept', hairColor: '#4a3020', build: 'normal', jersey: { pattern: 'band', colors: ['#1d4ed8', '#ffffff', '#dc2626'] } },
+  daicos: { skin: '#f2caa9', hair: 'short', hairColor: '#111111', build: 'lean', jersey: { pattern: 'stripes', colors: ['#111111', '#ffffff'] } },
+};
+
+/** Body shapes: shoulder and neck half-widths, head size, and where the head sits. */
+const BUILDS = {
+  buff: { shoulders: 31, neck: 8.5, headRx: 15, headRy: 17.5, headY: 25, muscles: true },
+  heavy: { shoulders: 32, neck: 9.5, headRx: 17.5, headRy: 18, headY: 25.5, muscles: true, doubleChin: true },
+  tall: { shoulders: 29, neck: 7.5, headRx: 14, headRy: 18, headY: 20, muscles: true, longNeck: true },
+  lean: { shoulders: 22, neck: 5.5, headRx: 14, headRy: 17.5, headY: 25 },
+  normal: { shoulders: 25, neck: 6.5, headRx: 15, headRy: 18, headY: 25 },
+};
+
+function lookFor(seat, index) {
+  return (seat.isBot && PLAYER_LOOKS[seat.name.toLowerCase()]) || {
+    skin: '#f1c7a5', hair: 'bald', build: 'normal', jersey: { pattern: 'plain', colors: [SHIRTS[index % SHIRTS.length], '#ffffff'] },
+  };
 }
 
-/** New community cards slide from the dealer's seat into their spot on the board. */
-function slideIntoPlace(cards) {
-  if (!cards.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const dealer = [...document.querySelectorAll('.seat')].find((s) => s.querySelector('.badge')?.textContent === 'D');
-  const from = (dealer || $('pot')).getBoundingClientRect();
-  cards.forEach((card, i) => {
-    const to = card.getBoundingClientRect();
-    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
-    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-    card.style.animation = 'none';
-    card.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px) rotate(-25deg) scale(.7)`, opacity: 0 },
-        { opacity: 1, offset: 0.25 },
-        { transform: 'translate(0, 0) rotate(0) scale(1)', opacity: 1 },
-      ],
-      { duration: 600, delay: i * 160, easing: 'cubic-bezier(.2, .8, .25, 1)', fill: 'backwards' },
-    );
-  });
+/** A slightly darker version of a colour, for shading skin. */
+function shade(hex, amount = 0.15) {
+  const n = parseInt(hex.slice(1), 16);
+  const channel = (shift) => Math.round(((n >> shift) & 255) * (1 - amount));
+  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+}
+
+/** Shapes that fill the torso with the jersey's pattern (clipped to the torso outline). */
+function jerseyPattern({ pattern, colors: [main, second = '#ffffff', third = second] }, shoulderY) {
+  const rect = (x, y, w, h, fill) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`;
+  let out = rect(0, 0, 64, 64, main);
+  if (pattern === 'hoops') {
+    for (let y = shoulderY + 3, k = 0; y < 64; y += 5.5, k++) if (k % 2 === 0) out += rect(0, y, 64, 5.5, second);
+  } else if (pattern === 'stripes') {
+    for (let x = 29; x > -6; x -= 12) out += rect(x, 0, 6, 64, second);
+    for (let x = 41; x < 64; x += 12) out += rect(x, 0, 6, 64, second);
+  } else if (pattern === 'sash') {
+    out += `<path d="M0 ${shoulderY + 4} L10 ${shoulderY - 2} L64 ${shoulderY + 22} L64 ${shoulderY + 34} Z" fill="${second}"/>`;
+  } else if (pattern === 'yoke') {
+    out += rect(0, 0, 64, shoulderY + 8, second);
+  } else if (pattern === 'band') {
+    out += rect(0, shoulderY + 8, 64, 9, second) + rect(0, shoulderY + 7, 64, 2, third) + rect(0, shoulderY + 16, 64, 2, third);
+  }
+  return out;
+}
+
+/** Hair drawn on top of the head. (A mullet's back part is drawn behind the head separately.) */
+function hairOnTop(style, color, headRx, headY, headTop) {
+  if (style === 'bald') return '';
+  const L = 32 - headRx;
+  const R = 32 + headRx;
+  const cap = `<path d="M${L - 0.5} ${headY - 2} Q${L} ${headTop - 4} 32 ${headTop - 3} Q${R} ${headTop - 4} ${R + 0.5} ${headY - 2}
+    Q${R - 3} ${headTop + 5} 32 ${headTop + 7} Q${L + 3} ${headTop + 5} ${L - 0.5} ${headY - 2} Z" fill="${color}"/>`;
+  if (style === 'swept') {
+    return cap + `<path d="M28 ${headTop} Q38 ${headTop - 8} ${R + 1} ${headTop + 4} Q38 ${headTop - 1} 28 ${headTop + 3} Z" fill="${color}"/>`;
+  }
+  return cap;
+}
+
+let avatarCount = 0;
+
+function playerAvatar(look) {
+  const b = BUILDS[look.build] ?? BUILDS.normal;
+  const id = `avatar${++avatarCount}`;
+  const skin = look.skin;
+  const skinShade = shade(skin);
+  const hairColor = look.hairColor ?? '#3b2a1a';
+  const { headRx: rx, headRy: ry, headY } = b;
+  const headTop = headY - ry;
+  const shoulderY = headY + ry - 1 + (b.longNeck ? 5 : 0);
+  const [L, R, nL, nR] = [32 - b.shoulders, 32 + b.shoulders, 32 - b.neck, 32 + b.neck];
+  const torso = `M${L} 66 C${L} ${shoulderY + 6} ${nL - 7} ${shoulderY} ${nL} ${shoulderY} L${nR} ${shoulderY} C${nR + 7} ${shoulderY} ${R} ${shoulderY + 6} ${R} 66 Z`;
+  const collar = look.jersey.colors[1] ?? '#ffffff';
+
+  const mulletBack = look.hair === 'mullet'
+    ? `<path d="M${32 - rx + 3} ${headY + 7} Q${nL - 5} ${shoulderY - 1} ${nL - 7} ${shoulderY + 7} L${nR + 7} ${shoulderY + 7} Q${nR + 5} ${shoulderY - 1} ${32 + rx - 3} ${headY + 7} Z" fill="${hairColor}"/>`
+    : '';
+  const muscles = b.muscles
+    ? `<path d="M${L + 4} ${shoulderY + 13} Q${L + 6} ${shoulderY + 3} ${nL - 4} ${shoulderY + 2} M${R - 4} ${shoulderY + 13} Q${R - 6} ${shoulderY + 3} ${nR + 4} ${shoulderY + 2} M32 ${shoulderY + 10} V${shoulderY + 20}"
+        fill="none" stroke="rgba(0,0,0,.25)" stroke-width="1.4" stroke-linecap="round"/>`
+    : '';
+  const doubleChin = b.doubleChin
+    ? `<path d="M${32 - 8} ${headY + ry - 3} Q32 ${headY + ry + 3} ${32 + 8} ${headY + ry - 3}" fill="none" stroke="${skinShade}" stroke-width="1.5"/>`
+    : '';
+  const baldShine = look.hair === 'bald'
+    ? `<ellipse cx="${32 - rx * 0.4}" cy="${headTop + ry * 0.35}" rx="5" ry="2.4" fill="#fff" opacity=".45"/>`
+    : '';
+  const browColor = look.hair === 'bald' ? '#6b4a33' : hairColor;
+
+  return `<svg viewBox="0 0 64 64" aria-hidden="true">
+    <defs><clipPath id="${id}"><path d="${torso}"/></clipPath></defs>
+    <circle cx="32" cy="32" r="32" fill="#0f172a"/>
+    ${mulletBack}
+    <rect x="${nL}" y="${headY + ry - 8}" width="${b.neck * 2}" height="${shoulderY - (headY + ry) + 12}" fill="${skinShade}"/>
+    <g clip-path="url(#${id})">${jerseyPattern(look.jersey, shoulderY)}</g>
+    ${muscles}
+    <path d="M${nL} ${shoulderY} Q32 ${shoulderY + 7} ${nR} ${shoulderY}" fill="none" stroke="${collar}" stroke-width="2.2"/>
+    <ellipse cx="${32 - rx - 0.5}" cy="${headY + 1}" rx="3.5" ry="5" fill="${skinShade}"/>
+    <ellipse cx="${32 + rx + 0.5}" cy="${headY + 1}" rx="3.5" ry="5" fill="${skinShade}"/>
+    <ellipse cx="32" cy="${headY}" rx="${rx}" ry="${ry}" fill="${skin}"/>
+    ${doubleChin}${baldShine}
+    ${hairOnTop(look.hair, hairColor, rx, headY, headTop)}
+    <path d="M21 ${headY - 6} H28 M36 ${headY - 6} H43" stroke="${browColor}" stroke-width="1.8" stroke-linecap="round"/>
+    <g fill="#0b0f19">
+      <rect x="19.5" y="${headY - 3.5}" width="11" height="7.5" rx="2.5"/><rect x="33.5" y="${headY - 3.5}" width="11" height="7.5" rx="2.5"/>
+    </g>
+    <path d="M30.5 ${headY - 1.5} H33.5 M19.5 ${headY - 2} L${32 - rx} ${headY - 1} M44.5 ${headY - 2} L${32 + rx} ${headY - 1}" stroke="#0b0f19" stroke-width="1.8"/>
+    <path d="M21.5 ${headY - 1.8} L24 ${headY - 2.6} M35.5 ${headY - 1.8} L38 ${headY - 2.6}" stroke="#fff" stroke-width="1.2" opacity=".55" stroke-linecap="round"/>
+    <path d="M32 ${headY + 3} Q34.5 ${headY + 7} 31 ${headY + 8}" fill="none" stroke="${skinShade}" stroke-width="1.4"/>
+    <path d="M26.5 ${headY + 12} H37.5" stroke="#7a3b2e" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
 }
 
 function keyed(parent, selector, id, create) {
@@ -827,29 +1072,51 @@ function keyed(parent, selector, id, create) {
 }
 
 function render(v) {
+  const prev = view;
   view = v;
   const seats = v.seats;
+  const sameHand = !!prev && prev.handNumber === v.handNumber && prev.phase !== 'lobby' && v.phase !== 'lobby';
+  const prevSeats = new Map((prev?.seats ?? []).map((s) => [s.id, s]));
   $('meta').textContent = `${v.tableName} · hand #${v.handNumber} · blinds ${v.smallBlind}/${v.bigBlind}`;
 
-  // Seats around the rail with you at the bottom; each bet sits on the felt in front of its seat.
+  // Where things were before this update, for chips and cards that leave.
   const table = $('table');
+  const potRect = ($('pot').hidden ? $('board') : $('potStack')).getBoundingClientRect();
+  const betRects = new Map([...table.querySelectorAll('.bet')].map((b) => [b.dataset.id, b.querySelector('.stack').getBoundingClientRect()]));
+  if (sameHand) {
+    for (const s of seats) {
+      const ps = prevSeats.get(s.id);
+      if (ps && !ps.folded && s.folded) {
+        const el = table.querySelector(`.seat[data-id="${s.id}"]`);
+        if (el && !s.isYou) foldAway(el, potRect);
+        sound.fold();
+      }
+    }
+  }
+
+  // Seats around the rail with you at the bottom; each bet sits on the felt in front of its seat.
   const youIdx = Math.max(0, seats.findIndex((s) => s.isYou));
   const ids = new Set(seats.map((s) => s.id));
   table.querySelectorAll('.seat, .bet').forEach((el) => !ids.has(el.dataset.id) && el.remove());
+  const newHole = [];
+  const flips = [];
+  const betMoves = [];
+  const knocks = [];
 
   seats.forEach((s, i) => {
+    const ps = sameHand ? prevSeats.get(s.id) : null;
     const angle = Math.PI / 2 + ((i - youIdx) * 2 * Math.PI) / seats.length;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
     const el = keyed(table, '.seat', s.id, () => {
       const d = document.createElement('div');
-      d.innerHTML = `<div class="cards"></div><div class="plate"><div class="avatar">${avatarSvg(SHIRTS[i % SHIRTS.length])}</div>`
+      d.innerHTML = `<div class="cards"></div><div class="plate"><div class="avatar">${playerAvatar(lookFor(s, i))}</div>`
         + '<div class="info"><div class="name"></div><div class="chips"></div><div class="note"></div><div class="hand"></div></div></div>';
       return d;
     });
-    el.style.left = `${50 + 47 * cos}%`;
-    el.style.top = `${50 + 45 * sin}%`;
+    el.style.left = `${50 + 46 * cos}%`;
+    el.style.top = `${50 + 44 * sin}%`;
     el.className = 'seat';
     el.classList.toggle('you', s.isYou);
     el.classList.toggle('turn', s.isTurn);
@@ -861,10 +1128,20 @@ function render(v) {
     el.querySelector('.name').textContent = s.name + (s.isYou ? ' (you)' : '');
     el.querySelector('.chips').textContent = s.eliminated ? 'busted' : fmt(s.chips);
     const note = el.querySelector('.note');
-    note.textContent = s.allIn ? 'all in!' : s.lastAction || (s.isBot ? `bot · ${SHORT_STYLES[s.botStyle] || ''}` : s.reserved ? 'waiting to rejoin' : '');
-    note.classList.toggle('allin', s.allIn);
+    const thinking = v.phase === 'playing' && s.isTurn && !s.isYou;
+    note.textContent = thinking ? 'thinking' : s.allIn ? 'all in!' : s.lastAction || (s.isBot ? `bot · ${SHORT_STYLES[s.botStyle] || ''}` : s.reserved ? 'waiting to rejoin' : '');
+    note.classList.toggle('thinking', thinking);
+    note.classList.toggle('allin', s.allIn && !thinking);
     el.querySelector('.hand').textContent = s.handName || '';
-    syncCards(el.querySelector('.cards'), s.holeCards, `${v.handNumber}`, true);
+
+    // Your cards turn face down when you fold; everyone's turn up at showdown.
+    const shown = s.isYou && s.folded ? s.holeCards.map(() => null) : s.holeCards;
+    for (const c of syncCards(el.querySelector('.cards'), shown, `${v.handNumber}`, true)) {
+      if (c.replaced) {
+        paintCard(c.el, c.prevCode);
+        flips.push(c);
+      } else newHole.push({ ...c, seat: i });
+    }
 
     let badge = el.querySelector('.badge');
     const badgeText = v.phase === 'lobby' ? '' : s.isDealer ? 'D' : s.isSmallBlind ? 'SB' : s.isBigBlind ? 'BB' : '';
@@ -883,24 +1160,28 @@ function render(v) {
       const bet = keyed(table, '.bet', s.id, () => {
         const d = document.createElement('div');
         d.className = 'bet';
-        d.innerHTML = '<span class="chip"></span><span class="amt"></span>';
+        d.innerHTML = '<div class="stack"></div><span class="amt"></span>';
         return d;
       });
       bet.style.left = `${50 + 30 * cos}%`;
       bet.style.top = `${50 + 27 * sin}%`;
       bet.querySelector('.amt').textContent = fmt(s.streetBet);
+      chipStack(bet.querySelector('.stack'), s.streetBet, v.bigBlind, 6);
+      const before = ps && prev.street === v.street ? ps.streetBet : 0;
+      if (s.streetBet > before) betMoves.push({ seatEl: el, bet, amount: s.streetBet - before, action: s.lastAction || '' });
     } else table.querySelector(`.bet[data-id="${s.id}"]`)?.remove();
+
+    if (ps && s.lastAction === 'Check' && ps.lastAction !== 'Check') knocks.push(el);
   });
 
-  slideIntoPlace(syncCards($('board'), v.board, `b${v.handNumber}`, false, 5));
+  const boardChanges = syncCards($('board'), v.board, `b${v.handNumber}`, false, 5);
   const pot = $('pot');
-  pot.innerHTML = `Pot: <b>${fmt(v.pot)}</b>`;
-  if (v.pot !== lastPot) { pot.classList.remove('bump'); void pot.offsetWidth; pot.classList.add('bump'); lastPot = v.pot; }
-
-  const banner = $('banner');
-  const summary = v.phase !== 'playing' && v.lastHand ? describeHand(v.lastHand) : '';
-  banner.hidden = !summary;
-  banner.textContent = summary;
+  pot.hidden = v.pot <= 0;
+  $('potAmount').textContent = fmt(v.pot);
+  chipStack($('potStack'), v.pot, v.bigBlind, 15);
+  if (v.pot !== lastPot && v.pot > 0) { pot.classList.remove('bump'); void pot.offsetWidth; pot.classList.add('bump'); }
+  lastPot = v.pot;
+  $('banner').hidden = true;
 
   const log = $('log');
   log.replaceChildren(...v.log.map((line) => {
@@ -913,8 +1194,85 @@ function render(v) {
 
   renderControls(v);
   renderOverlay(v);
+  renderDim(v, prev);
   tick();
+
+  // ── Animations for what just happened ──
+  const newPotRect = ($('pot').hidden ? $('board') : $('potStack')).getBoundingClientRect();
+  let later = 0;
+  // A betting round ended: everyone's bets sweep into the pot.
+  if (sameHand) {
+    for (const [id, rect] of betRects) {
+      const s = seats.find((x) => x.id === id);
+      if (!s || s.streetBet === 0) {
+        flyChips(rect, newPotRect, 4);
+        later = 420;
+      }
+    }
+    if (later) sound.chips(4, 150);
+  }
+  // Chips from a player's stack to their bet.
+  for (const m of betMoves) {
+    const n = Math.min(7, Math.max(2, Math.ceil(Math.log2(m.amount / v.bigBlind + 1)) + 1));
+    flyChips(m.seatEl.querySelector('.plate').getBoundingClientRect(), m.bet.querySelector('.stack').getBoundingClientRect(), n);
+    sound.chips(/^(Raise|Bet|All-in)/.test(m.action) ? 6 : 3);
+  }
+  // Checks: a knock on the table.
+  for (const el of knocks) {
+    if (!reducedMotion()) el.querySelector('.cards').animate(
+      [{ transform: 'none' }, { transform: 'translateY(-6px) rotateX(40deg)' }, { transform: 'none' }],
+      { duration: 320, easing: 'ease-out' },
+    );
+    sound.knock();
+  }
+  // New hole cards go round the table from the dealer; yours turn face up.
+  const dealer = table.querySelector('.seat .badge') && [...table.querySelectorAll('.seat')].find((el) => el.querySelector('.badge')?.textContent === 'D');
+  const dealFrom = (dealer || $('board')).getBoundingClientRect();
+  const order = (seat) => (seat - youIdx + seats.length) % seats.length;
+  newHole
+    .sort((a, b) => a.el.dataset.key.split(':')[1] - b.el.dataset.key.split(':')[1] || order(a.seat) - order(b.seat))
+    .forEach((c, k) => dealIn(c.el, dealFrom, later + k * 110, c.code));
+  // Board cards (flop, turn, river) slide in face down and turn over.
+  boardChanges.filter((c) => !c.replaced).forEach((c, k) => dealIn(c.el, dealFrom, later + 150 + k * 170, c.code));
+  // Reveals at showdown, and your own fold.
+  for (const c of flips) flipTo(c.el, c.code, later);
+  // Someone won: the pot goes to them.
+  if (prev && prev.phase === 'playing' && v.phase !== 'playing' && v.lastHand) {
+    for (const potResult of v.lastHand.pots) {
+      for (const w of potResult.winners) {
+        const seatEl = table.querySelector(`.seat[data-id="${w.id}"] .plate`);
+        if (seatEl) flyChips(newPotRect, seatEl.getBoundingClientRect(), 8, later + 350);
+      }
+    }
+    sound.win(later + 350);
+  }
 }
+
+/** Between hands: dim the table, show the result, and wait for a click or key to deal again. */
+function renderDim(v, prev) {
+  const dim = $('dim');
+  const waiting = v.phase === 'handOver' && !v.nextHandAt;
+  if (!waiting) {
+    clearTimeout(dimTimer);
+    dimTimer = null;
+    dim.classList.remove('show');
+    return;
+  }
+  $('dimSummary').textContent = v.lastHand ? describeHand(v.lastHand) : 'Hand over';
+  $('dimPress').textContent = v.mode === 'client' ? 'Waiting for the host to deal the next hand…' : 'Press anywhere to continue';
+  if (!dim.classList.contains('show') && !dimTimer) {
+    // Let the chips reach the winner before dimming.
+    dimTimer = setTimeout(() => { dim.classList.add('show'); dimTimer = null; }, prev && prev.phase === 'playing' ? 1500 : 0);
+  }
+}
+function continueGame() {
+  if (!view || view.mode === 'client') return;
+  if (view.phase === 'handOver') {
+    $('dim').classList.remove('show');
+    command('nextHand');
+  } else if (view.phase === 'gameOver') command('restart');
+}
+$('dim').addEventListener('click', continueGame);
 
 function describeHand(h) {
   return h.pots.map((p) => {
@@ -924,33 +1282,28 @@ function describeHand(h) {
   }).join(' · ');
 }
 
-let wasMyTurn = false;
-
 /** Exactly three actions: Fold, Call (a check when there's nothing to call), Raise. */
 function renderControls(v) {
   const L = v.legal;
   const myTurn = !!L;
-  document.body.classList.toggle('my-turn', myTurn);
   $('controls').classList.toggle('my-turn', myTurn);
-  document.title = myTurn ? '▶ YOUR TURN · CLI LAN Poker' : 'CLI LAN Poker';
-  if (myTurn && !wasMyTurn) {
-    const callout = document.createElement('div');
-    callout.className = 'turn-callout';
-    callout.textContent = 'YOUR TURN';
-    document.body.append(callout);
-    setTimeout(() => callout.remove(), 1700);
-  }
-  wasMyTurn = myTurn;
+  document.title = myTurn ? '▶ Your turn · CLI LAN Poker' : 'CLI LAN Poker';
   const me = v.seats.find((s) => s.isYou);
   const turn = v.seats.find((s) => s.isTurn);
 
-  $('fold').disabled = !L;
-  $('call').disabled = !L;
-  $('raise').disabled = !L || !L.canRaise;
-  $('call').innerHTML = L && L.canCall ? `Call<small>${fmt(L.callAmount)}</small>` : L && L.canCheck ? 'Check<small>C</small>' : 'Call<small>C</small>';
+  // Off turn the buttons slide away instead of greying out; they keep their last look while leaving.
+  $('actions').classList.toggle('away', !L);
+  if (L) {
+    $('fold').disabled = false;
+    $('call').disabled = false;
+    $('raise').disabled = !L.canRaise;
+    $('call').innerHTML = L.canCall ? `Call<small>${fmt(L.callAmount)}</small>` : 'Check<small>C</small>';
+  }
 
   const row = $('raiseRow');
-  if (L && L.canRaise) {
+  if (!L) {
+    raiseKey = '';
+  } else if (L.canRaise) {
     const key = `${v.handNumber}-${v.street}-${v.currentBet}`;
     if (key !== raiseKey) {
       // New decision point: reset the slider to the minimum raise.
@@ -970,7 +1323,7 @@ function renderControls(v) {
   }
 
   let hint = '';
-  if (v.phase === 'handOver') hint = '<span id="countdown"></span>';
+  if (v.phase === 'handOver') hint = '';
   else if (v.phase === 'playing') {
     if (L) hint = `<b>▶ Your turn</b> <span id="countdown"></span>`;
     else if (me && me.eliminated) hint = "You're out of chips, spectating.";
@@ -988,11 +1341,12 @@ function setRaise(n) {
   $('raise').innerHTML = `Raise<small>to ${fmt(raiseTo)}${raiseTo === L.maxRaiseTo ? ' (all in)' : ''}</small>`;
 }
 
+$('overlay').addEventListener('click', () => view?.phase === 'gameOver' && continueGame());
 $('range').oninput = (e) => setRaise(+e.target.value);
 $('amount').onchange = (e) => setRaise(+e.target.value);
-$('fold').onclick = () => act({ type: 'fold' });
-$('call').onclick = () => view && view.legal && act(view.legal.canCheck ? { type: 'check' } : { type: 'call' });
-$('raise').onclick = () => act({ type: 'raise', amount: raiseTo });
+$('fold').onclick = () => view?.legal && act({ type: 'fold' });
+$('call').onclick = () => view?.legal && act(view.legal.canCheck ? { type: 'check' } : { type: 'call' });
+$('raise').onclick = () => view?.legal?.canRaise && act({ type: 'raise', amount: raiseTo });
 
 function renderOverlay(v) {
   const overlay = $('overlay');
@@ -1030,7 +1384,7 @@ function renderOverlay(v) {
       <h2>Game over</h2>
       <p>${esc(v.message || '')}</p>
       <ul>${standings.map((s, i) => `<li><span>#${i + 1} ${esc(s.name)}</span><span class="tag">${fmt(s.chips)}</span></li>`).join('')}</ul>
-      <p>Head back to the terminal to play again.</p>`;
+      <p>${v.mode === 'client' ? 'Waiting for the host to start a new game…' : 'Press anywhere to play again'}</p>`;
     overlay.hidden = false;
   } else {
     overlay.hidden = true;
@@ -1058,11 +1412,13 @@ function tick() {
 setInterval(tick, 500);
 
 document.addEventListener('keydown', (e) => {
-  if (!view || !view.legal || e.target.tagName === 'INPUT') return;
+  if (!view || e.target.tagName === 'INPUT' || e.repeat) return;
+  if ($('dim').classList.contains('show') || view.phase === 'gameOver') return continueGame();
+  if (!view.legal) return;
   const k = e.key.toLowerCase();
   if (k === 'f') $('fold').click();
   else if (k === 'c') $('call').click();
-  else if (k === 'r' && !$('raise').disabled) $('raise').click();
+  else if (k === 'r' && !$('raise').disabled && view.legal.canRaise) $('raise').click();
 });
 
 connect();

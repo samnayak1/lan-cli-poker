@@ -19,6 +19,7 @@ export interface SessionOptions {
   saves?: SaveManager;
   /** Auto check/fold a human who takes longer than this. null = wait forever. */
   turnTimeoutMs?: number | null;
+  /** Deal the next hand automatically after this long. Unset: wait for the host to continue. */
   nextHandDelayMs?: number;
   botThinkMs?: [min: number, max: number];
 }
@@ -211,8 +212,30 @@ export class TableSession extends EventEmitter {
       case 'fillBots':
         this.fillReservedWithBots();
         break;
+      case 'nextHand':
+        if (this.phase === 'handOver') this.startHand();
+        break;
+      case 'restart':
+        this.restart();
+        break;
     }
     return null;
+  }
+
+  /** After a game over: everyone gets a fresh stack and a new game starts at the same table. */
+  private restart(): void {
+    if (this.phase !== 'gameOver') return;
+    const s = this.state;
+    for (const p of s.players) {
+      p.chips = s.config.startingChips;
+      p.resetForHand();
+    }
+    this.bustOrder.length = 0;
+    s.handNumber = 0;
+    s.dealerIndex = -1;
+    s.lastHand = null;
+    s.addLog('── New game ──');
+    this.startHand();
   }
 
   // ── Play ───────────────────────────────────────────────────────────────
@@ -235,8 +258,12 @@ export class TableSession extends EventEmitter {
     this.message = null;
     this.phase = 'playing';
     this.game.startHand();
+    this.lastStreet = null; // the deal itself counts as a new street for pacing
     this.afterAction();
   }
+
+  /** Street the last scheduled bot turn saw — a newly dealt street earns an extra pause. */
+  private lastStreet: string | null = null;
 
   /** Schedules whatever has to happen next: a bot move, a timeout, or the end of the hand. */
   private afterAction(): void {
@@ -248,8 +275,11 @@ export class TableSession extends EventEmitter {
 
     const p = s.toAct!;
     if (p.isBot) {
-      const [min, max] = this.opts.botThinkMs ?? [700, 1600];
-      this.schedule(min + Math.random() * (max - min), () => {
+      // Bots take a human-looking moment to think, plus a beat after new cards so the deal is seen.
+      const [min, max] = this.opts.botThinkMs ?? [450, 900];
+      const dealPause = s.street !== this.lastStreet && !this.opts.botThinkMs ? 400 : 0;
+      this.lastStreet = s.street;
+      this.schedule(min + Math.random() * (max - min) + dealPause, () => {
         let err: string | null;
         try {
           err = this.act(p.id, this.bots.get(p.id)!.decide(this.game, p));
@@ -285,9 +315,11 @@ export class TableSession extends EventEmitter {
     if (localBusted || !this.game.canStartHand()) return this.endGame();
 
     this.persist();
-    const delay = this.opts.nextHandDelayMs ?? 5000;
-    this.nextHandAt = Date.now() + delay;
-    this.schedule(delay, () => this.startHand());
+    const delay = this.opts.nextHandDelayMs;
+    if (delay !== undefined) {
+      this.nextHandAt = Date.now() + delay;
+      this.schedule(delay, () => this.startHand());
+    }
     this.changed();
   }
 

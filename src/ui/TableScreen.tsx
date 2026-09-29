@@ -106,6 +106,12 @@ export function TableScreen({ table, onExit }: { table: LaunchedTable; onExit: (
 
     if (view.phase === 'gameOver' || (status === 'closed' && view.mode === 'client')) {
       if (key.return) onExit();
+      else if (k === 'r' && view.phase === 'gameOver' && view.mode !== 'client') table.conn.command('restart');
+      return;
+    }
+    // Between hands the host (or single player) deals the next one with any key.
+    if (view.phase === 'handOver') {
+      if (view.mode !== 'client') table.conn.command('nextHand');
       return;
     }
     if (view.phase === 'lobby' && view.lobby?.isHost) {
@@ -321,8 +327,16 @@ function ActionBar({ view, raise, now }: { view: TableView; raise: string | null
   const legal = view.legal;
 
   if (view.phase === 'handOver') {
-    const secs = view.nextHandAt ? Math.max(0, Math.ceil((view.nextHandAt - now) / 1000)) : 0;
-    return <Text color="gray">Next hand in {secs}s</Text>;
+    if (view.nextHandAt) {
+      return <Text color="gray">Next hand in {Math.max(0, Math.ceil((view.nextHandAt - now) / 1000))}s</Text>;
+    }
+    return view.mode === 'client' ? (
+      <Text color="gray">Waiting for the host to deal the next hand…</Text>
+    ) : (
+      <Text backgroundColor="white" color="black" bold>
+        {' Press any key to continue '}
+      </Text>
+    );
   }
 
   if (!legal) {
@@ -381,7 +395,7 @@ function GameOver({ view }: { view: TableView }) {
           #{i + 1} {s.name.padEnd(16)} {fmt(s.chips)}
         </Text>
       ))}
-      <Text color="gray">Press Enter to return to the menu.</Text>
+      <Text color="gray">{view.mode === 'client' ? 'Press Enter to return to the menu.' : 'Press R to play again, or Enter to return to the menu.'}</Text>
     </Box>
   );
 }
