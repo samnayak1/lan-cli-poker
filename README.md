@@ -1,10 +1,14 @@
 # poker-lan-cli
 
-No-limit Texas Hold'em in your terminal, built with [Ink](https://github.com/vadimdemedes/ink). Every game also opens a browser GUI on `localhost` that mirrors the table and lets you act from there. The GUI shows the table from above in a dimly lit Las Vegas casino: your poker room has an ornate red carpet, and through its doorways you can see the slots room, the blackjack room and the bar, with guests and staff (dealers, a bartender, waitresses, security). Every player at the table is a bald cartoon kid with glasses and a poker face.
+No-limit Texas Hold'em in your terminal, built with [Ink](https://github.com/vadimdemedes/ink). Every game also opens a browser GUI on `localhost` that mirrors the table and lets you act from there. The GUI shows the table from above in a cosy lounge, with couches, guests and hosts, chip and card animations, sound effects, and a cartoon avatar in sunglasses for every player.
 
 - **Single Player** — you against 4 bots that decide with equity, pot odds and hand ranges
 - **Host** — run a table other people on your LAN can join, plus up to 4 bots. Progress is saved so you can resume unfinished games
 - **Join on LAN** — hosts on your network are found automatically, or you can type an address
+
+## Install
+
+**With npm** (needs Node.js 22+):
 
 ```bash
 npx poker-lan-cli
@@ -13,7 +17,25 @@ npm install -g poker-lan-cli
 poker-lan
 ```
 
-Requires Node.js 22+.
+**Without npm or Node** (Linux and macOS). This downloads a standalone executable from the [GitHub releases](https://github.com/samnayak1/lan-cli-poker/releases):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/samnayak1/lan-cli-poker/main/install.sh | sh
+```
+
+It installs to `~/.local/bin/poker-lan`. Use `PREFIX=/usr/local` to choose another location, or `VERSION=v0.1.0` for a specific release.
+
+**Windows:** download `poker-lan-windows-x64.exe` from the [releases page](https://github.com/samnayak1/lan-cli-poker/releases) and run it from a terminal.
+
+**From source with make** (needs [Bun](https://bun.sh), or npm as a fallback):
+
+```bash
+git clone https://github.com/samnayak1/lan-cli-poker && cd lan-cli-poker
+make install            # builds bin/poker-lan and copies it to ~/.local/bin
+make release            # executables for every platform, in release/
+```
+
+The executables bundle the runtime, the game and the browser GUI into one file (60–85 MB), so they run with nothing else installed.
 
 ## Options
 
@@ -97,7 +119,10 @@ npm run dev        # run from source with tsx
 npm test           # engine, AI, and network integration tests
 npm run build      # compile to dist/
 npm publish        # runs typecheck + tests + build first
+make release       # standalone executables for every platform
 ```
+
+Pushing a version tag (`npm version patch && git push --follow-tags`) runs `.github/workflows/release.yml`, which builds the executables and attaches them to a GitHub release. `install.sh` downloads from those releases.
 
 ## Contributing
 

@@ -1,0 +1,27 @@
+# Builds standalone executables for every platform and attaches them to a GitHub release
+# whenever a version tag is pushed (e.g. `npm version patch && git push --follow-tags`).
+# install.sh downloads from these releases.
+name: Release executables
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+      - run: npm ci
+      - run: npm test
+      - run: make release
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*

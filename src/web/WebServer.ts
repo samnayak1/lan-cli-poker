@@ -1,27 +1,17 @@
 import { randomBytes } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
-import { fileURLToPath } from 'node:url';
 import WebSocket, { WebSocketServer } from 'ws';
+import { PAGE_HTML, PEOPLE_WEBP } from '../generated/assets.js';
 import type { TableConnection } from '../net/connection.js';
 import { parseMessage, type ClientMessage } from '../net/protocol.js';
 import type { TableView } from '../types.js';
 
-// Resolves to <package>/public/index.html from both src/web (tsx) and dist/web (built).
-const PAGE_PATH = fileURLToPath(new URL('../../public/index.html', import.meta.url));
-const PEOPLE_DIR = fileURLToPath(new URL('../../public/people/', import.meta.url));
+// The page and images are compiled in (scripts/embed-assets.mjs), so nothing is read from disk:
+// the same code works from npm and as a single standalone executable.
 
-/** The crowd cutouts, loaded once. Only these exact files are ever served — no path handling. */
+/** The crowd faces. Only these exact files are ever served — no path handling. */
 function loadPeople(): Map<string, Buffer> {
-  const files = new Map<string, Buffer>();
-  try {
-    for (const name of readdirSync(PEOPLE_DIR)) {
-      if (/^[a-z0-9-]+\.webp$/.test(name)) files.set(`/people/${name}`, readFileSync(PEOPLE_DIR + name));
-    }
-  } catch {
-    // No cutouts shipped: the page simply renders an empty crowd.
-  }
-  return files;
+  return new Map(Object.entries(PEOPLE_WEBP).map(([name, base64]) => [`/people/${name}`, Buffer.from(base64, 'base64')]));
 }
 
 /**
@@ -41,7 +31,7 @@ export class WebServer {
   constructor(private readonly conn: TableConnection) {}
 
   async start(preferredPort: number): Promise<string> {
-    const page = readFileSync(PAGE_PATH, 'utf8');
+    const page = PAGE_HTML;
     const people = loadPeople();
     for (let port = preferredPort; port < preferredPort + 20; port++) {
       try {

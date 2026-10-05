@@ -15,10 +15,15 @@
     "node": ">=22"
   },
   "scripts": {
+    "embed": "node scripts/embed-assets.mjs",
+    "prebuild": "npm run embed --silent",
     "build": "tsc -p tsconfig.build.json",
+    "predev": "npm run embed --silent",
     "dev": "tsx src/cli.tsx",
     "start": "node dist/cli.js",
+    "pretypecheck": "npm run embed --silent",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run embed --silent",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },

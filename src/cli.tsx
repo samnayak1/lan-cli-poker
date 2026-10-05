@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 import { render } from 'ink';
-import { createRequire } from 'node:module';
 import { parseArgs } from 'node:util';
 import type { CliOptions } from './launch.js';
+import { VERSION as version } from './generated/assets.js';
 import { DEFAULT_GAME_PORT } from './net/protocol.js';
 import { App } from './ui/App.js';
 
-const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
 
 const HELP = `
 poker-lan — Texas Hold'em in your terminal, with a browser GUI.
