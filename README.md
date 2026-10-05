@@ -25,8 +25,6 @@ curl -fsSL https://raw.githubusercontent.com/samnayak1/lan-cli-poker/main/instal
 
 It installs to `~/.local/bin/poker-lan`. Use `PREFIX=/usr/local` to choose another location, or `VERSION=v0.1.0` for a specific release.
 
-**Windows:** download `poker-lan-windows-x64.exe` from the [releases page](https://github.com/samnayak1/lan-cli-poker/releases) and run it from a terminal.
-
 **From source with make** (needs [Bun](https://bun.sh), or npm as a fallback):
 
 ```bash

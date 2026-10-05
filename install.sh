@@ -15,7 +15,7 @@ BIN_DIR="$PREFIX/bin"
 case "$(uname -s)" in
   Linux) os=linux ;;
   Darwin) os=darwin ;;
-  *) echo "Unsupported OS: $(uname -s). On Windows, download poker-lan-windows-x64.exe from https://github.com/$REPO/releases" >&2; exit 1 ;;
+  *) echo "Unsupported OS: $(uname -s). poker-lan's standalone builds are for Linux and macOS." >&2; exit 1 ;;
 esac
 case "$(uname -m)" in
   x86_64 | amd64) arch=x64 ;;

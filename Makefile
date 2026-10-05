@@ -10,7 +10,7 @@
 
 PREFIX  ?= $(HOME)/.local
 BINDIR  := $(DESTDIR)$(PREFIX)/bin
-TARGETS := linux-x64 linux-arm64 darwin-x64 darwin-arm64 windows-x64
+TARGETS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
 
 HAVE_BUN := $(shell command -v bun 2>/dev/null)
 ifeq ($(HAVE_BUN),)
