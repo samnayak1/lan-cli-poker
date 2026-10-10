@@ -84,17 +84,36 @@ The numbers are in `RANGE_IF_THEY`, `NARROWING_PER_POSTFLOP_BET` and `NARROWING_
 
 The bot can't see the other hands, so it estimates its equity by playing the hand out many times at random. This is a *Monte Carlo* simulation, and it runs 700 times per decision:
 
-1. **Deal each opponent a hand that fits their range.** The bot draws two random cards. If they don't fit the range, it puts them back and draws again (`dealHandFromRange`). After 40 tries it accepts whatever it drew.
+1. **Deal each opponent a hand that fits their range** (see below).
 2. **Deal the rest of the board at random.**
 3. **Compare hands.** A win counts 1, a loss 0, and a split between *n* players counts 1/*n*.
 
 The equity is the average over all the run-outs.
 
-A hand "fits" an opponent's range (`handFitsRange`) when:
+### Dealing a hand that fits a range
 
-- it's strong enough preflop, meaning its percentile is within their range, and
-- if they've been betting since the flop, it has **a pair or better**, a **flush draw** (four cards of one suit), or a **straight draw** (four of the five ranks of a straight).
-  - One time in three, a hand with none of those is allowed anyway, since that opponent might be bluffing.
+The bot uses the simplest method that works, called *rejection sampling*: deal random cards, throw back anything that doesn't fit, and try again (`dealHandFromRange`).
+
+> An opponent re-raised before the flop, so the bot guesses they hold a top-7% hand (AA, KK, QQ, AK…). In one run-out:
+>
+> 1. Draw two random cards from the ones we can't see: **7♣ 2♦**. Not in the top 7%, so put them back.
+> 2. Draw again: **K♠ Q♠**. Still not in the top 7%, so put them back.
+> 3. Draw again: **A♥ K♦**. That fits, so the opponent "holds" AK for this run-out.
+>
+> The next run-out starts over and might give them QQ, or AA, and so on.
+
+**Why put the cards back?**
+
+- **No cards go missing.** If rejected cards were thrown away, every rejection would strip weak cards like 7s and 2s out of the deck, and the board would come out stronger than it should.
+- **Fair sampling.** Repeating until a hand fits makes every hand in the range as likely as it is in real dealing. AK, which can be dealt 16 ways, comes up more often than AA, which can be dealt only 6 ways.
+
+**The 40-try limit.** With a very narrow range, such as the 4% minimum, finding a matching hand can take many tries. To keep each decision fast, after 40 tries the bot accepts whatever it drew. This makes the estimate slightly less accurate in rare cases.
+
+**What counts as "fits"** (`handFitsRange`):
+
+- **Preflop strength:** the hand is strong enough, meaning its percentile is within the opponent's range.
+- **Postflop betting:** if they've been betting since the flop, it must also have **a pair or better**, a **flush draw** (four cards of one suit) or a **straight draw** (four of the five ranks of a straight).
+  - One time in three, a hand with none of those is allowed anyway, because that opponent might be bluffing.
 
 ## Step 3: Pot odds
 

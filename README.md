@@ -86,6 +86,8 @@ Each bot has a personality: Tight-Aggressive, Loose-Aggressive, Tight-Passive (r
 
 The full walkthrough, with worked examples and every tuning constant, is in [docs/BOT.md](docs/BOT.md).
 
+How hands are ranked (with bitmasks for straights and flushes) is explained in [docs/HAND_EVALUATOR.md](docs/HAND_EVALUATOR.md).
+
 ## Architecture
 
 ```
