@@ -1,6 +1,6 @@
 {
   "name": "poker-lan-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Texas Hold'em in your terminal (Ink) with a browser GUI — single player vs equity-based bots, or LAN multiplayer with save/resume.",
   "type": "module",
   "bin": {
