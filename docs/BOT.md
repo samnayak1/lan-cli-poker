@@ -108,6 +108,18 @@ For a hand that's in both charts, the bot rolls once for the raise frequency, th
 
 Re-raises are 3× the bet in position and 4× out of position (from the blinds). 4-bets are 2.3×.
 
+**Against loose raisers:** the charts assume a typical opponent. Against someone who raises more often than that, folding most hands just hands them the blinds, so the bot keeps playing in proportion to how wide they raise. It also calls with its top share of hands (by preflop strength) and re-raises with the very top:
+
+| Facing | Also calls with its top… | Also re-raises with its top… |
+| --- | --- | --- |
+| A loose raise, from the big blind | 85% of the raiser's raising rate (up to 75% of hands) | 20% of their rate (up to 18%) |
+| A loose raise, from the small blind | 50% of their rate | 20% of their rate (up to 18%) |
+| A loose raise, from any other seat | 45% of their rate | 20% of their rate (up to 18%) |
+| A frequent re-raiser, after we opened | 50% of their re-raise rate (up to 35%) | 12% of their rate (up to 8%) |
+| A player who keeps 4-betting light | Up to 15% more hands | — |
+
+Against someone who raises every hand, the big blind keeps playing about 75% of the time instead of folding most hands.
+
 **Huge bets:** if calling would cost more than 25 big blinds before the flop (usually someone moving all in), the charts don't apply. The bot works out its equity against the raiser's likely range and calls only if that beats the pot odds.
 
 ## After the flop (`playPostflop`)
@@ -163,7 +175,7 @@ One tracker per table watches every player, humans and bots, and is shared by al
 | Folds to bets a lot | Bluff them more (up to 1.8× as often) |
 | Calls bets a lot | Nearly stop bluffing them (down to 0.25×) and bet thinner hands for value |
 | Bets and raises a lot after the flop | Assume more of their bets are bluffs, so call them down lighter |
-| Raises a lot before the flop | Treat their raises as wide, and re-raise and defend against them more |
+| Raises a lot before the flop | Treat their raises as wide, and stretch the charts to defend and re-raise against them (see "Against loose raisers") |
 | Rarely raises before the flop | Treat their raises as strong, and continue against them only with good hands |
 | Re-raises a lot | Call and 4-bet them wider when they re-raise the bot |
 | Still to act, and folds to raises a lot | Open wider to steal the blinds (the next wider seat's chart) |
@@ -177,14 +189,14 @@ Each opponent starts on "any two cards". Their actions this hand narrow it, size
 
 | What they did | Their range becomes |
 | --- | --- |
-| Raised first before the flop | Their own raising rate (`pfr`), e.g. top 18% for a typical player, top 40% for a maniac |
+| Raised first before the flop | Their own raising rate (`pfr`), e.g. top 18% for a typical player, any two cards for someone who raises every hand |
 | Re-raised | Their own re-raise rate (`threeBet`) |
 | Called with no raise in front | Their own `vpip` |
 | Called a raise | About 60% of their `vpip` |
-| Each bet or raise after the flop | 75% of what it was |
+| Each bet or raise after the flop | 75% of what it was for a typical player; barely narrower (up to 97%) for someone who bets constantly, since their bets tell us little |
 | Each call after the flop | 90% of what it was |
 
-If they've bet or raised after the flop, the bot also assumes they usually have something: a pair or better, or a draw. The exception is the share of the time they've shown they bluff (their `aggression` rate, between 10% and 70%), when a hand with nothing still counts as possible.
+If they've bet or raised after the flop, the bot also assumes they usually have something: a pair or better, or a draw. The exception is the share of the time they've shown they bluff (their `aggression` rate, between 10% and 95%), when a hand with nothing still counts as possible.
 
 ## Equity by simulation (`equity.ts`)
 
@@ -251,11 +263,18 @@ Simulated heads-up games, with stacks reset to 100 big blinds every hand, scored
 | New bot against | Result |
 | --- | --- |
 | The previous bot, tight-aggressive style | +17.8 bb/100 over 10,000 hands |
-| The previous bot, loose-aggressive style | +10.3 bb/100 over 10,000 hands |
-| A player who always calls | +387 bb/100 (the previous bot managed +137) |
+| The previous bot, loose-aggressive style | about +7 bb/100 (two 10,000-hand runs: +17.9 and −3.3) |
+| A player who always calls | +323 bb/100 over 10,000 hands (the previous bot managed +137) |
 | A player who folds whenever bet into | +60 bb/100 (the previous bot managed +14) |
 
-The last two rows show the exploiting at work: the new bot wins nearly 3× and 4× as much from those leaks as the old one.
+The last two rows show the exploiting at work: the new bot wins 2–4× as much from those leaks as the old one. Heads-up results swing by about ±15 bb/100 even over 10,000 hands, so treat single numbers as rough.
+
+Against over-aggressive players, the bot defends rather than folding:
+
+| Human who… | Bot folds to their bets (before the flop / on the river) | Human's result |
+| --- | --- | --- |
+| Raises every hand before the flop | 35% / — | −685 bb/100 |
+| Raises every hand and bets every street | 36% / 29% | −517 bb/100 heads-up |
 
 ## Tuning
 

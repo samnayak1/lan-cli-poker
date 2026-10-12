@@ -9,7 +9,7 @@ import {
   BB_ISO, COLD_VS_3BET, OPEN, TIGHTER, VS_3BET, VS_4BET, VS_5BET, VS_OPEN, WIDER,
   frequencyOf, type OpenSeat, type Response,
 } from './preflopCharts.js';
-import { handClass } from './ranges.js';
+import { handClass, preflopPercentile } from './ranges.js';
 
 /*
  * How a bot decides, in plain terms. Every bot plays the same strong ("GTO-inspired")
@@ -59,6 +59,9 @@ const COMMIT_THRESHOLD = 0.6;
 
 /** A typical player folds to a bet this often; we bluff more or less as opponents fold more or less. */
 const TYPICAL_FOLD_TO_BET = 0.45;
+/** A typical player raises 18% of hands preflop and bets/raises on 35% of postflop actions. */
+const TYPICAL_PFR = 0.18;
+const TYPICAL_AGGRESSION = 0.35;
 
 // ── Small helpers ────────────────────────────────────────────────────────
 
@@ -150,19 +153,31 @@ export class Bot {
       const response =
         mySeat === 'BB' ? (late ? VS_OPEN.bbLate : VS_OPEN.bbEarly) : mySeat === 'SB' ? VS_OPEN.sb : late ? VS_OPEN.late : VS_OPEN.early;
       const raiseSize = table.currentBet * (inPosition ? THREE_BET_IN_POSITION : THREE_BET_OUT_OF_POSITION) + callers * table.currentBet;
-      return this.respond(legal, hand, response, raiseSize);
+      // The charts assume a typical opener. Against someone who raises far more often, folding
+      // most hands just hands them the blinds, so keep playing in proportion to how wide they open.
+      const pfr = openerProfile.pfr;
+      const defendShare = mySeat === 'BB' ? pfr * 0.85 : mySeat === 'SB' ? pfr * 0.5 : pfr * 0.45;
+      const widen = pfr > TYPICAL_PFR ? { reraise: clamp(pfr * 0.2, 0, 0.18), call: clamp(defendShare, 0, 0.75) } : undefined;
+      return this.respond(legal, hand, response, raiseSize, 1, widen && { me, ...widen });
     }
 
     // Facing a re-raise (3-bet). If we opened, defend wider against players who 3-bet a lot.
     if (raises.length === 2) {
-      if (!iOpened) return this.respond(legal, hand, COLD_VS_3BET, table.currentBet * FOUR_BET);
       const threeBetRate = this.tracker.profile(lastRaiser.id).threeBet;
+      const widen = threeBetRate > 0.1 ? { me, reraise: clamp(threeBetRate * 0.12, 0, 0.08), call: clamp(threeBetRate * 0.5, 0, 0.35) } : undefined;
+      if (!iOpened) {
+        const cold = threeBetRate > 0.1 ? { me, reraise: 0, call: clamp(threeBetRate * 0.15, 0, 0.1) } : undefined;
+        return this.respond(legal, hand, COLD_VS_3BET, table.currentBet * FOUR_BET, 1, cold);
+      }
       const looseness = clamp(threeBetRate / 0.08, 0.6, 1.6); // typical 3-bet rate is ~8%
-      return this.respond(legal, hand, VS_3BET, table.currentBet * FOUR_BET, inPosition ? looseness : looseness * 0.8);
+      return this.respond(legal, hand, VS_3BET, table.currentBet * FOUR_BET, inPosition ? looseness : looseness * 0.8, widen);
     }
 
-    if (raises.length === 3) return this.respond(legal, hand, VS_4BET, legal.maxRaiseTo);
-    return this.respond(legal, hand, VS_5BET, legal.maxRaiseTo);
+    // Facing a 4-bet or more: only premium hands, unless the raiser re-raises with almost anything.
+    const raiserPfr = this.tracker.profile(lastRaiser.id).pfr;
+    const widen = raiserPfr > 0.3 ? { me, reraise: 0, call: clamp((raiserPfr - 0.3) * 0.3, 0, 0.15) } : undefined;
+    if (raises.length === 3) return this.respond(legal, hand, VS_4BET, legal.maxRaiseTo, 1, widen);
+    return this.respond(legal, hand, VS_5BET, legal.maxRaiseTo, 1, widen);
   }
 
   /**
@@ -180,12 +195,28 @@ export class Bot {
     return seat;
   }
 
-  /** Raise with the chart's raising hands, else call with its calling hands, else fold (mixed by frequency). */
-  private respond(legal: LegalActions, hand: string, response: Response, raiseTo: number, callLooseness = 1): PlayerAction {
+  /**
+   * Raise with the chart's raising hands, else call with its calling hands, else fold (mixed by frequency).
+   * `widen` stretches the charts against over-aggressive players: also re-raise with our top
+   * `reraise` share of hands and call with our top `call` share (by preflop strength).
+   */
+  private respond(
+    legal: LegalActions,
+    hand: string,
+    response: Response,
+    raiseTo: number,
+    callLooseness = 1,
+    widen?: { me: Player; reraise: number; call: number },
+  ): PlayerAction {
     if (legal.canRaise && this.chance(frequencyOf(response.raise, hand))) return this.raiseTo(legal, raiseTo);
     if (this.chance(clamp(frequencyOf(response.call, hand) * callLooseness, 0, 1))) return checkOrCall(legal);
     // A hand we'd re-raise but can't (not enough chips behind to raise) is still worth a call.
     if (!legal.canRaise && frequencyOf(response.raise, hand) > 0) return checkOrCall(legal);
+    if (widen) {
+      const strength = preflopPercentile(widen.me.holeCards[0]!, widen.me.holeCards[1]!); // 0.05 = a top-5% hand
+      if (legal.canRaise && strength <= widen.reraise) return this.raiseTo(legal, raiseTo);
+      if (strength <= widen.call) return checkOrCall(legal);
+    }
     return checkOrFold(legal);
   }
 
@@ -280,18 +311,21 @@ export class Bot {
     let range = 1;
     let aggressivePostflop = false;
     let raisesSoFar = 0;
+    // A typical player's bet narrows their range to 75%. Someone who bets constantly tells us
+    // much less with each bet, so their range barely narrows (down to 97% per bet).
+    const betNarrowing = clamp(1 - 0.25 * (TYPICAL_AGGRESSION / Math.max(profile.aggression, 0.05)), 0.75, 0.97);
 
     for (const action of actions) {
       const theirs = action.playerId === opponent.id;
       if (action.street === 'preflop') {
         if (theirs && action.kind === 'raise') {
-          range = Math.min(range, raisesSoFar === 0 ? clamp(profile.pfr, 0.05, 0.5) : clamp(profile.threeBet, 0.03, 0.2));
+          range = Math.min(range, raisesSoFar === 0 ? clamp(profile.pfr, 0.05, 1) : clamp(profile.threeBet, 0.03, 0.8));
         } else if (theirs && action.kind === 'call') {
-          range = Math.min(range, raisesSoFar === 0 ? clamp(profile.vpip, 0.1, 0.8) : clamp(profile.vpip * 0.6, 0.06, 0.5));
+          range = Math.min(range, raisesSoFar === 0 ? clamp(profile.vpip, 0.1, 1) : clamp(profile.vpip * 0.6, 0.06, 0.8));
         }
         if (action.kind === 'raise') raisesSoFar++;
       } else if (theirs && (action.kind === 'bet' || action.kind === 'raise')) {
-        range *= 0.75;
+        range *= betNarrowing;
         aggressivePostflop = true;
       } else if (theirs && action.kind === 'call') {
         range *= 0.9;
@@ -302,7 +336,7 @@ export class Bot {
       maxPercentile: Math.max(0.04, range),
       aggressivePostflop,
       // How often their bets are bluffs: in line with how aggressive they've been.
-      bluffShare: clamp(profile.aggression, 0.1, 0.7),
+      bluffShare: clamp(profile.aggression, 0.1, 0.95),
     };
   }
 }

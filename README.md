@@ -83,7 +83,7 @@ Every bot plays the same strong, GTO-inspired strategy and adapts to how you pla
 - **Postflop play:** the bot estimates its equity with a Monte Carlo simulation (about 700 run-outs) against what each opponent likely holds. Facing a bet, it calls whenever that beats the pot odds. Otherwise it value-bets at mixed sizes, semi-bluffs draws, bluffs rivers at a measured rate, and sometimes slow-plays monsters.
 - **Learning the table:** a shared tracker records how every player plays: how often they enter pots, raise, re-raise, bet after the flop, and fold to bets. The bots bluff players who fold too much, value-bet players who call too much, call down players who bet too much, and widen or tighten their preflop charts to match.
 
-In simulated heads-up play the current bot beats the previous version by 10–18 big blinds per 100 hands, and wins 3–4× as much as before from players who always call or always fold.
+In simulated heads-up play the current bot beats the previous version, wins 2–4× as much as before from players who always call or always fold, and defends against players who raise and bet every hand instead of folding to them.
 
 The full walkthrough, with worked examples and every tuning constant, is in [docs/BOT.md](docs/BOT.md).
 

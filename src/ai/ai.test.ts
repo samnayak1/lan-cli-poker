@@ -116,6 +116,33 @@ describe('Bot', () => {
     }
   });
 
+  it('defends its big blind much more against a player who raises every hand', () => {
+    const foldRate = (tracker: OpponentTracker) => {
+      const brain = new Bot(tracker, seeded(5), 60);
+      let folds = 0;
+      for (let i = 0; i < 300; i++) {
+        const state = new GameState({ smallBlind: 10, bigBlind: 20, startingChips: 1000, maxPlayers: 8 });
+        state.players = [
+          new Player({ id: 'villain', name: 'V', chips: 1000, kind: 'human' }),
+          new Player({ id: 'bot', name: 'B', chips: 1000, kind: 'bot' }),
+        ];
+        const game = new Game(state, seeded(100 + i)); // a different deal each time
+        game.startHand(); // villain deals and acts first heads-up
+        game.act('villain', { type: 'raise', amount: 60 });
+        if (brain.decide(game, state.players[1]!).type === 'fold') folds++;
+      }
+      return folds / 300;
+    };
+    const maniacTracker = new OpponentTracker();
+    for (let i = 0; i < 80; i++) {
+      maniacTracker.recordHand(['villain', 'bot'], [{ playerId: 'villain', street: 'preflop', kind: 'raise', amount: 60 }]);
+    }
+    const vsTypical = foldRate(new OpponentTracker());
+    const vsManiac = foldRate(maniacTracker);
+    assert.ok(vsManiac < vsTypical - 0.2, `folds vs typical ${vsTypical}, vs maniac ${vsManiac}`);
+    assert.ok(vsManiac < 0.35, `still folds ${vsManiac} against a maniac`);
+  });
+
   it('bluffs more against players who fold too much than against ones who call everything', () => {
     // Heads-up on the flop; the bot is first to act with nothing (no pair, no draw).
     const setUp = () => {
