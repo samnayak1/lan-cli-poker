@@ -77,12 +77,13 @@ To resume, choose **Host → Resume "…"**. Saved players get their seats and c
 
 ## The bots
 
-Each bot has a personality: Tight-Aggressive, Loose-Aggressive, Tight-Passive (rock) or Calling Station. Every decision uses only information a real player would have:
+Every bot plays the same strong, GTO-inspired strategy and adapts to how you play. Each decision uses only information a real player would have:
 
-- **Hand ranges:** starting hands are ranked by the Chen formula into percentiles. A bot opens only the top X% of hands for its personality, widened in late position and tightened in early position. It re-raises with the top of that range.
-- **Opponent ranges:** the bot narrows each opponent's likely range from their actions this hand. For example, a preflop raise means roughly the top 20%, a 3-bet the top 7%, and each postflop bet or raise narrows it further and shifts it toward made hands and draws.
-- **Equity:** a Monte Carlo simulation (about 700 run-outs) of the bot's hand against hands drawn from those ranges.
-- **Pot odds:** the bot calls when equity ≥ `toCall / (pot + toCall)` plus a personality margin. It bets and raises for value above thresholds that scale with the number of opponents, and it bluffs at a personality-specific rate.
+- **Preflop charts:** solver-style opening, re-raising and calling ranges for each seat, with mixed frequencies for borderline hands.
+- **Postflop play:** the bot estimates its equity with a Monte Carlo simulation (about 700 run-outs) against what each opponent likely holds. Facing a bet, it calls whenever that beats the pot odds. Otherwise it value-bets at mixed sizes, semi-bluffs draws, bluffs rivers at a measured rate, and sometimes slow-plays monsters.
+- **Learning the table:** a shared tracker records how every player plays: how often they enter pots, raise, re-raise, bet after the flop, and fold to bets. The bots bluff players who fold too much, value-bet players who call too much, call down players who bet too much, and widen or tighten their preflop charts to match.
+
+In simulated heads-up play the current bot beats the previous version by 10–18 big blinds per 100 hands, and wins 3–4× as much as before from players who always call or always fold.
 
 The full walkthrough, with worked examples and every tuning constant, is in [docs/BOT.md](docs/BOT.md).
 

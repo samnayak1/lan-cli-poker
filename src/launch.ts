@@ -27,7 +27,9 @@ async function startGui(conn: TableConnection, opts: CliOptions): Promise<WebSer
   if (!opts.gui) return null;
   const web = new WebServer(conn);
   const url = await web.start(opts.webPort);
-  if (opts.browser) open(url).catch(() => {});
+  if (opts.browser) {
+    open(url).catch(() => {});
+  }
   return web;
 }
 
@@ -90,6 +92,8 @@ export async function launchJoin(name: string, address: string, opts: CliOptions
       if (status === 'connected') done(resolve);
       else if (status === 'closed') done(() => reject(new Error(lastError)));
     };
+
+    
     const done = (fn: () => void) => {
       conn.off('error', onError);
       conn.off('status', onStatus);

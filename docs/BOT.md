@@ -1,38 +1,38 @@
 # How the bots play
 
-The bots play no-limit Texas Hold'em using the same information a person at the table has:
+Every bot plays the same strong, **GTO-inspired** strategy. On top of that, it **studies the table**: it learns how each player plays and adjusts to exploit them.
 
-- their own two cards
+Like a person at the table, a bot only uses:
+
+- its own two cards
 - the community cards on the board
 - the size of the pot
-- how each opponent has bet during this hand
+- how everyone has bet, in this hand and in earlier ones
 
-They never look at anyone else's cards.
+It never looks at anyone else's cards.
 
-The code is in three files:
+The code is in five files:
 
 | File | What it does |
 | --- | --- |
-| [`src/ai/Bot.ts`](../src/ai/Bot.ts) | Makes the decision: guesses ranges, then applies the preflop and postflop rules |
+| [`src/ai/Bot.ts`](../src/ai/Bot.ts) | Makes the decision: preflop charts, postflop play, exploits |
+| [`src/ai/preflopCharts.ts`](../src/ai/preflopCharts.ts) | Which hands to raise, call or fold before the flop, by seat and situation |
+| [`src/ai/OpponentTracker.ts`](../src/ai/OpponentTracker.ts) | Learns each player's habits from every finished hand |
 | [`src/ai/equity.ts`](../src/ai/equity.ts) | Estimates how often the bot wins, by simulating the rest of the hand |
-| [`src/ai/ranges.ts`](../src/ai/ranges.ts) | Ranks all starting hands so the bot can talk about the "top 20% of hands" |
+| [`src/ai/ranges.ts`](../src/ai/ranges.ts) | Ranks all starting hands, so the bot can picture "an opponent's top 20% of hands" |
 
-## The decision in four steps
+## What GTO-inspired means
 
-Each time it's a bot's turn, `Bot.decide()` runs these four steps:
+GTO ("game theory optimal") play is a strategy no opponent can profit against, however they adjust. True GTO needs huge offline computations (see the end of this guide), so these bots borrow its main habits instead:
 
-```
-1. Guess ranges   →  what could each opponent be holding?          (guessRange)
-2. Equity         →  how often would I win against those hands?    (estimateEquity)
-3. Pot odds       →  what share of the pot does calling cost me?   (potOdds)
-4. Choose         →  preflop rules, or postflop equity vs pot odds (playPreflop / playPostflop)
-```
-
-A decision takes about 25 ms on average. Most of that time goes into the equity simulation.
+- **Solver-style preflop charts.** Opening, re-raising and calling ranges for each seat, close to what solvers recommend, instead of a rule of thumb.
+- **Mixed strategies.** Borderline hands are played different ways at set frequencies, for example "re-raise A5s half the time, otherwise fold". The same hand in the same spot doesn't always get the same action, so the bot is hard to read.
+- **Defending properly.** Facing a bet, the bot calls whenever its equity beats the pot odds, against a realistic picture of how often the bettor is bluffing. Betting at it doesn't automatically work.
+- **Balanced betting.** It value-bets several sizes, semi-bluffs with draws, bluffs rivers at a measured rate and sometimes slow-plays big hands. A big bet doesn't reveal whether it's strong.
 
 ## Key ideas
 
-**Range:** the set of hands a player could plausibly have. The bots describe a range as "the top X% of starting hands". Any two cards is 100%. A player who re-raised before the flop is assumed to be in about the top 7%.
+**Range:** the set of hands a player could plausibly have, often described as "the top X% of starting hands". Any two cards is 100%; someone who re-raised before the flop is usually in about the top 7%.
 
 **Equity:** the bot's expected share of the pot if the hand were played to the end. 0.6 means it wins 60% of the time. A split pot counts as a partial win.
 
@@ -42,45 +42,151 @@ A decision takes about 25 ms on average. Most of that time goes into the equity 
 > pot odds = 50 / 150 = **33%**.
 > Calling pays off in the long run if we win more than 33% of the time, that is, if equity > 33%.
 
-The whole postflop strategy follows from that comparison.
+**Exploiting:** deliberately leaving GTO play to take advantage of an opponent's mistakes, like bluffing more against someone who folds too often.
 
-## Personalities
+## Before the flop: the charts (`preflopCharts.ts`)
 
-Each bot has one of four personalities (`PERSONALITIES` in `Bot.ts`):
+### Range notation
 
-| Personality | Plays (`vpip`) | Opens with a raise (`pfr`) | Aggression | Bluffs | Call margin |
-| --- | --- | --- | --- | --- | --- |
-| Tight-Aggressive (`tag`) | 22% of hands | 16% | 0.75 | 0.10 | +0.03 |
-| Loose-Aggressive (`lag`) | 38% | 26% | 0.85 | 0.20 | 0 |
-| Tight-Passive (`rock`) | 15% | 7% | 0.35 | 0.03 | +0.06 |
-| Calling Station (`station`) | 50% | 8% | 0.30 | 0.05 | −0.07 |
+The charts use standard poker notation:
 
-- **vpip:** the share of starting hands the bot is willing to play at all.
-- **pfr:** the share it opens with a raise. This is always smaller than vpip.
-- **aggression:** the chance it bets or raises a strong hand instead of just checking or calling.
-- **bluff:** the chance it bets a weak hand when nobody else has bet.
-- **call margin:** how much equity it wants on top of the pot odds before it calls. A negative margin means it calls too often, which is what makes a calling station.
+| Notation | Means |
+| --- | --- |
+| `TT+` | Pairs from tens up: TT, JJ, QQ, KK, AA |
+| `22-55` | Pairs from deuces to fives |
+| `A2s+` | Suited aces, A2s up to AKs (`s` = suited, `o` = offsuit) |
+| `K9s-K6s` | Suited kings from K9s down to K6s |
+| `ATo+` | Offsuit aces, ATo up to AKo |
+| `A5s:0.5` | Play A5s only half the time (a mixed strategy) |
 
-The names and personalities of the seated bots come from `BOT_ROSTER`.
+`parseRange()` turns a string like `"TT+, AQs+, A5s:0.5"` into a chart: a table of how often to play each hand.
 
-## Step 1: Guessing opponents' ranges
+### Seats
 
-`guessRange()` goes through every action this hand. Each opponent starts on "any two cards", and their actions narrow that down:
+Seats are counted back from the dealer (the button):
+
+| Seat | Who |
+| --- | --- |
+| BTN | The dealer, last to act after the flop |
+| CO (cutoff) | One seat before the button |
+| HJ (hijack) | Two before |
+| UTG (under the gun) | Earlier still |
+| SB / BB | The small and big blind |
+| HU | The dealer when only two players are dealt in (heads-up) |
+
+Later seats see more before they act, so they can play more hands.
+
+### Opening (nobody has raised yet)
+
+| Seat | Opens with |
+| --- | --- |
+| UTG | ~19% of hands |
+| HJ | ~23% |
+| CO | ~30% |
+| BTN | ~46% |
+| SB | ~40% |
+| HU (heads-up dealer) | ~62% |
+
+Opens are 2.5 big blinds (3 from the small blind), plus one big blind for every player who has already called. If everyone just calls to the big blind, it raises with its best hands (`BB_ISO`) and checks the rest.
+
+### Facing a raise
+
+Each situation has two charts: hands to **re-raise** with and hands to **call** with. Anything else folds.
+
+| Situation | Chart |
+| --- | --- |
+| Facing one raise from an early seat | `VS_OPEN.early`: tight, because early openers are strong |
+| Facing one raise from a late seat | `VS_OPEN.late`: re-raises and defends more |
+| Small blind facing a raise | `VS_OPEN.sb`: mostly re-raise or fold (it plays out of position after the flop) |
+| Big blind facing a raise | `VS_OPEN.bbEarly` / `bbLate`: defends widest, since it already has a blind in |
+| We opened and got re-raised (3-bet) | `VS_3BET`: 4-bet the top, plus a few suited-ace bluffs; call the next tier |
+| Someone else's raise got re-raised before us | `COLD_VS_3BET`: only the best hands |
+| Facing a 4-bet | `VS_4BET` |
+| Facing a 5-bet or more | `VS_5BET` |
+
+For a hand that's in both charts, the bot rolls once for the raise frequency, then once more for the call frequency.
+
+Re-raises are 3× the bet in position and 4× out of position (from the blinds). 4-bets are 2.3×.
+
+**Huge bets:** if calling would cost more than 25 big blinds before the flop (usually someone moving all in), the charts don't apply. The bot works out its equity against the raiser's likely range and calls only if that beats the pot odds.
+
+## After the flop (`playPostflop`)
+
+The bot works out its **equity** against what each opponent likely holds (see "Equity by simulation" below), then compares it with an **even share** of the pot: 1/2 heads-up, 1/3 with two opponents, and so on.
+
+- **Good enough to bet:** equity ≥ even share + 0.10 (`VALUE_BET_EDGE`)
+- **Good enough to raise:** equity ≥ even share + 0.30 (`RAISE_EDGE`)
+- **Monster:** equity ≥ 0.85
+
+### Nobody has bet yet
+
+1. **Good hand:** bet. Ordinary value hands bet 33%, 50% or 66% of the pot, chosen at random. Monsters bet 66–75%, or 75–110% on the river.
+   - **Slow-play:** heads-up before the river, a monster sometimes checks instead (12%, plus up to 25% more against aggressive players who'll bet for it).
+2. **Weak hand:** sometimes bluff.
+
+   | Holding | Bluff chance (heads-up) |
+   | --- | --- |
+   | A flush or straight draw (semi-bluff, before the river) | 45% |
+   | Nothing, on the flop or turn | 12% |
+   | Nothing, on the river | 22% |
+
+   Into two or more players these drop to about a third. Bluffs use the same big sizes as strong value bets, so the size of a bet doesn't give the hand away.
+3. **Otherwise:** check.
+
+### Someone has bet
+
+1. **Good enough to raise:** raise 70% of the time, by about 80% of the pot.
+2. **Strong draw** (at least 30% equity): sometimes raise as a semi-bluff (about 20%). If it gets called, the draw can still win.
+3. **Otherwise:** call if equity ≥ pot odds, else fold.
+
+That last rule is what makes bluffing the bot unprofitable. It defends whenever the price is right, and the bettor's range includes bluffs at the rate that player has shown (see below).
+
+## Learning the table (`OpponentTracker.ts`)
+
+One tracker per table watches every player, humans and bots, and is shared by all the bots. After each hand it reads the actions and updates each player's record:
+
+| Stat | Means | Typical player |
+| --- | --- | --- |
+| `vpip` | Share of hands they put money in before the flop | 25% |
+| `pfr` | Share of hands they raised before the flop | 18% |
+| `threeBet` | When facing one raise: how often they re-raise | 8% |
+| `foldVsOpen` | When facing one raise: how often they fold | 65% |
+| `aggression` | After the flop: bets and raises as a share of all their actions | 35% |
+| `foldToBet` | After the flop: how often they fold when bet into | 45% |
+
+**Smoothing:** with few hands seen, a player is assumed to be typical. Their own record takes over gradually: each stat is `(times it happened + typical × 12) / (chances + 12)`. So one wild hand barely moves it, while after dozens of hands the stat reflects the player.
+
+### How the bots use it
+
+| If a player… | The bots… |
+| --- | --- |
+| Folds to bets a lot | Bluff them more (up to 1.8× as often) |
+| Calls bets a lot | Nearly stop bluffing them (down to 0.25×) and bet thinner hands for value |
+| Bets and raises a lot after the flop | Assume more of their bets are bluffs, so call them down lighter |
+| Raises a lot before the flop | Treat their raises as wide, and re-raise and defend against them more |
+| Rarely raises before the flop | Treat their raises as strong, and continue against them only with good hands |
+| Re-raises a lot | Call and 4-bet them wider when they re-raise the bot |
+| Still to act, and folds to raises a lot | Open wider to steal the blinds (the next wider seat's chart) |
+| Still to act, and rarely folds to raises | Open tighter (the next tighter seat's chart) |
+
+A bluff only works if *everyone* folds, so with several opponents the bot plans its bluffs around the one least likely to fold.
+
+## Guessing what opponents hold (`guessRange`)
+
+Each opponent starts on "any two cards". Their actions this hand narrow it, sized by their own record:
 
 | What they did | Their range becomes |
 | --- | --- |
-| Raised first before the flop | top 20% |
-| Re-raised before the flop | top 7% |
-| Called before the flop with no raise in front | top 50% |
-| Called a raise before the flop | top 30% |
+| Raised first before the flop | Their own raising rate (`pfr`), e.g. top 18% for a typical player, top 40% for a maniac |
+| Re-raised | Their own re-raise rate (`threeBet`) |
+| Called with no raise in front | Their own `vpip` |
+| Called a raise | About 60% of their `vpip` |
 | Each bet or raise after the flop | 75% of what it was |
 | Each call after the flop | 90% of what it was |
 
-A range never gets narrower than 4% (`TIGHTEST_RANGE`). If an opponent has bet or raised after the flop, the bot also marks them as `aggressivePostflop`. Step 2 uses that flag to assume they usually hold a made hand or a draw.
+If they've bet or raised after the flop, the bot also assumes they usually have something: a pair or better, or a draw. The exception is the share of the time they've shown they bluff (their `aggression` rate, between 10% and 70%), when a hand with nothing still counts as possible.
 
-The numbers are in `RANGE_IF_THEY`, `NARROWING_PER_POSTFLOP_BET` and `NARROWING_PER_POSTFLOP_CALL`.
-
-## Step 2: Equity by simulation (`equity.ts`)
+## Equity by simulation (`equity.ts`)
 
 The bot can't see the other hands, so it estimates its equity by playing the hand out many times at random. This is a *Monte Carlo* simulation, and it runs 700 times per decision:
 
@@ -111,23 +217,12 @@ The bot uses the simplest method that works, called *rejection sampling*: deal r
 
 **What counts as "fits"** (`handFitsRange`):
 
-- **Preflop strength:** the hand is strong enough, meaning its percentile is within the opponent's range.
-- **Postflop betting:** if they've been betting since the flop, it must also have **a pair or better**, a **flush draw** (four cards of one suit) or a **straight draw** (four of the five ranks of a straight).
-  - One time in three, a hand with none of those is allowed anyway, because that opponent might be bluffing.
+- **Preflop strength:** the hand is within the opponent's range.
+- **Postflop betting:** if they've been betting since the flop, it must also have **a pair or better**, a **flush draw** (four cards of one suit) or a **straight draw** (four of the five ranks of a straight). The exception is a hand with none of those, which still counts at that player's bluff rate.
 
-## Step 3: Pot odds
+### Ranking hands for "top X%" (`ranges.ts`)
 
-```
-potOdds = toCall / (pot + toCall)        // 0 when there's nothing to call
-```
-
-## Step 4a: Before the flop (`playPreflop`)
-
-Before the flop the bot mostly plays by **hand rankings**, adjusted for **position**.
-
-### Ranking starting hands (`ranges.ts`)
-
-There are 1326 possible two-card hands. They fall into 169 kinds that play differently: a pair (`77`), suited cards (`AKs`) and offsuit cards (`AKo`). The bot scores each kind with **Bill Chen's formula**:
+To picture "an opponent's top 20% of hands", the simulation needs every starting hand ranked. There are 1326 possible two-card hands, in 169 kinds that play differently: pairs (`77`), suited (`AKs`) and offsuit (`AKo`). They're scored with **Bill Chen's formula**:
 
 1. Points for the higher card: A = 10, K = 8, Q = 7, J = 6, and anything else is half its rank (so 9 = 4.5).
 2. A pair scores double those points, with a minimum of 5.
@@ -143,98 +238,56 @@ There are 1326 possible two-card hands. They fall into 169 kinds that play diffe
 | T9s | 5 (T) + 2 (suited) + 1 (small connector) | 8 |
 | 72o | 3.5 (7) − 5 (big gap) | −1 |
 
-The 169 kinds are sorted by score. Ties are broken by the higher card, then the lower one. Each kind then gets a **percentile**: the share of all 1326 hands that are at least as strong. AA is about 0.005, the top half-percent, and 72o is 1.0. "Top 20%" means a percentile of 0.2 or lower. You can list what's in a range with `describeRange(0.2)`.
-
-### Position
-
-Players who act later have seen more before they decide, so they can play more hands. `positionLooseness()` scales the bot's ranges:
-
-| Seat | Multiplier |
-| --- | --- |
-| Cutoff or button (last two to act), or 3 or fewer players | × 1.3 (looser) |
-| Small or big blind | × 1.0 |
-| Early seats (first two after the blinds) | × 0.8 (tighter) |
-| Everything else | × 1.0 |
-
-### The rules
-
-**Nobody has raised yet:**
-
-- If the hand is within `pfr × position`, the bot raises to 2.5–3.5 big blinds, plus 1 big blind for each player who has already called.
-- If it's within `vpip × position`, the bot calls, or checks if it's already the big blind.
-- Otherwise it folds, or checks if that's free.
-
-**Someone has raised:**
-
-- **Re-raise** with the very top of the range. That's `pfr × 0.3` against one raise and `pfr × 0.1` against two or more. The bot raises to 3 × the current bet.
-- **Call** when both of these are true:
-  - the hand is worth continuing with: within `vpip × 0.7` (one raise) or `vpip × 0.35` (more), or a premium top-3% hand, **and**
-  - the price is right: equity ≥ pot odds + call margin.
-- Otherwise **fold**.
-
-## Step 4b: After the flop (`playPostflop`)
-
-After the flop, equity does the work. The bot compares its equity with an **even share** of the pot. With 2 opponents, for example, an even share is 1/3.
-
-- **Good enough to bet:** equity ≥ even share + 0.12 (`VALUE_BET_EDGE`)
-- **Good enough to raise:** equity ≥ even share + 0.28 (`RAISE_EDGE`)
-
-> With 2 opponents: bet at 45% equity or more, raise at 61% or more.
-
-**Nobody has bet:**
-
-- **Good enough to bet:** the bot bets 50–80% of the pot, with probability `aggression`.
-- **Otherwise, maybe bluff:** it bets 55% of the pot with probability `bluff`.
-  - That chance is cut to 40% of normal when there's more than one opponent, and to 60% of normal on the river.
-- **Otherwise:** check.
-
-**Someone has bet:**
-
-- **Good enough to raise:** with probability `aggression`, the bot raises by 75% of the pot on top of the current bet.
-- **Call** when equity ≥ pot odds + call margin.
-- **Otherwise:** fold.
+Each kind then gets a **percentile**: the share of all 1326 hands at least as strong. AA is about 0.005, the top half-percent, and 72o is 1.0. (The bot's *own* preflop play uses the charts, not this ranking.)
 
 ## Bet sizing (`raiseTo`)
 
 Every raise size the bot wants is pushed into the legal range, between the minimum raise and all-in. If the raise would put 60% or more of its stack in anyway (`COMMIT_THRESHOLD`), the bot goes all in instead of keeping a few chips back.
 
+## How much stronger is it?
+
+Simulated heads-up games, with stacks reset to 100 big blinds every hand, scored in big blinds won per 100 hands:
+
+| New bot against | Result |
+| --- | --- |
+| The previous bot, tight-aggressive style | +17.8 bb/100 over 10,000 hands |
+| The previous bot, loose-aggressive style | +10.3 bb/100 over 10,000 hands |
+| A player who always calls | +387 bb/100 (the previous bot managed +137) |
+| A player who folds whenever bet into | +60 bb/100 (the previous bot managed +14) |
+
+The last two rows show the exploiting at work: the new bot wins nearly 3× and 4× as much from those leaks as the old one.
+
 ## Tuning
 
-All the numbers are named constants at the top of `Bot.ts`:
+The numbers are named constants:
 
-| Constant | Effect |
-| --- | --- |
-| `PERSONALITIES` | Each personality's style |
-| `OPEN_RAISE_BIG_BLINDS`, `RERAISE_MULTIPLIER` | Preflop raise sizes |
-| `PREMIUM_HAND` | Hands always good enough to continue with before the flop |
-| `VALUE_BET_EDGE`, `RAISE_EDGE` | How far ahead the bot must be to bet or raise after the flop |
-| `COMMIT_THRESHOLD` | When a big raise becomes all-in |
-| `LATE_POSITION_LOOSENESS`, `EARLY_POSITION_LOOSENESS` | How much position matters |
-| `RANGE_IF_THEY`, `NARROWING_PER_*`, `TIGHTEST_RANGE` | How strongly opponents' bets narrow their ranges |
+| Where | Constant | Effect |
+| --- | --- | --- |
+| `preflopCharts.ts` | `OPEN`, `VS_OPEN`, `VS_3BET`, … | Every preflop range, in range notation |
+| `Bot.ts` | `OPEN_SIZE_BB`, `THREE_BET_*`, `FOUR_BET` | Preflop raise sizes |
+| `Bot.ts` | `DEEP_COMMITMENT_BB` | When huge preflop bets switch from charts to equity |
+| `Bot.ts` | `VALUE_BET_EDGE`, `RAISE_EDGE`, `MONSTER` | How far ahead the bot must be to bet, raise or slow-play |
+| `Bot.ts` | `SEMI_BLUFF`, `AIR_BLUFF`, `RIVER_BLUFF`, `MULTIWAY_BLUFF_FACTOR` | How often it bluffs |
+| `Bot.ts` | `COMMIT_THRESHOLD` | When a big raise becomes all-in |
+| `OpponentTracker.ts` | `TYPICAL`, `PRIOR_WEIGHT` | What "typical" means, and how fast a player's own record takes over |
+| `equity.ts` | `MAX_DEAL_ATTEMPTS`, `DEFAULT_BLUFF_SHARE` | Range dealing and the default bluff rate |
 
-In `equity.ts`:
+The simulation count is the third argument to the `Bot` constructor, and defaults to 700.
 
-| Constant | Effect |
-| --- | --- |
-| `MAX_DEAL_ATTEMPTS` | How hard the bot tries to deal a hand that fits a range |
-| `BLUFF_ODDS` | How often it assumes a postflop bettor is bluffing |
+The tests in [`src/ai/ai.test.ts`](../src/ai/ai.test.ts) cover:
 
-The simulation count is the third argument to the `Bot` constructor, and defaults to 700. More simulations give steadier decisions but take longer.
-
-The bot tests are in [`src/ai/ai.test.ts`](../src/ai/ai.test.ts):
-
-- AA wins about 85% against a random hand.
-- A tight range lowers the equity of a medium hand.
-- Every personality plays full games using only legal actions.
+- range notation and chart sizes
+- the tracker learning from scripted hands
+- bots playing full games with only legal actions
+- the bot bluffing a player who folds too much far more than one who calls everything
 
 Run them with `npm test`.
 
 ## Limits
 
-These bots are meant to be decent opponents, not solvers:
+These bots are strong for a casual game, but they aren't solvers:
 
-- **No memory between hands.** They don't learn that one player bluffs a lot.
-- **Stack sizes and future streets are ignored.** They don't plan several streets ahead.
-- **Ranges are "top X%" by preflop strength.** After the flop they're only nudged toward made hands and draws, so a real player's range can differ a lot from the guess.
-- **Chen is an approximation.** It ranks some hands differently from simulation-based charts.
-- **Bluffs are random.** They follow set frequencies, not reads on opponents or the board.
+- **Not true GTO.** The charts approximate solver output; postflop play uses equity thresholds and fixed mixing frequencies rather than a solved strategy. True GTO would mean training with counterfactual regret minimization (CFR) offline and shipping a large strategy table.
+- **Memory lasts one table session.** What the tracker learns isn't saved, so a resumed game starts fresh.
+- **Stack depth is mostly ignored.** The charts assume about 100 big blinds; very short stacks are handled only by the all-in commitment rules.
+- **Simple reads.** The tracker learns overall tendencies, not board-specific habits like "only bluffs on wet boards".

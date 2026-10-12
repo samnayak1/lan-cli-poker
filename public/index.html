@@ -588,8 +588,6 @@
 
 <script>
 const SUITS = { c: '♣', d: '♦', h: '♥', s: '♠' };
-const STYLES = { tag: 'Tight-Aggressive', lag: 'Loose-Aggressive', rock: 'Tight-Passive', station: 'Calling Station' };
-const SHORT_STYLES = { tag: 'TAG', lag: 'LAG', rock: 'Rock', station: 'Station' };
 const token = new URLSearchParams(location.search).get('t');
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n.toLocaleString();
@@ -1188,7 +1186,7 @@ function render(v) {
     el.querySelector('.chips').textContent = s.eliminated ? 'busted' : fmt(s.chips);
     const note = el.querySelector('.note');
     const thinking = v.phase === 'playing' && s.isTurn && !s.isYou;
-    note.textContent = thinking ? 'thinking' : s.allIn ? 'all in!' : s.lastAction || (s.isBot ? `bot · ${SHORT_STYLES[s.botStyle] || ''}` : s.reserved ? 'waiting to rejoin' : '');
+    note.textContent = thinking ? 'thinking' : s.allIn ? 'all in!' : s.lastAction || (s.isBot ? 'bot' : s.reserved ? 'waiting to rejoin' : '');
     note.classList.toggle('thinking', thinking);
     note.classList.toggle('allin', s.allIn && !thinking);
     el.querySelector('.hand').textContent = s.handName || '';
@@ -1439,7 +1437,7 @@ function renderOverlay(v) {
     const lobby = v.lobby;
     const bots = v.seats.filter((s) => s.isBot).length;
     const rows = v.seats.map((s) => `<li><span>${esc(s.name)}${s.isYou ? ' (you)' : ''}</span><span class="tag">${
-      s.isBot ? `bot · ${STYLES[s.botStyle] || ''}` : s.reserved ? `waiting · ${fmt(s.chips)}` : lobby.resumed ? fmt(s.chips) : 'player'}</span></li>`).join('');
+      s.isBot ? 'bot' : s.reserved ? `waiting · ${fmt(s.chips)}` : lobby.resumed ? fmt(s.chips) : 'player'}</span></li>`).join('');
     const reserved = v.seats.some((s) => s.reserved);
     const full = v.seats.length >= lobby.maxPlayers;
     dialog.innerHTML = `

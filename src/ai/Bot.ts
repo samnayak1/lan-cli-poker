@@ -1,215 +1,253 @@
 import { mathRng, type Rng } from '../engine/Deck.js';
 import type { Game } from '../engine/Game.js';
-import type { ActionRecord } from '../engine/GameState.js';
+import type { ActionRecord, GameState } from '../engine/GameState.js';
 import type { Player } from '../engine/Player.js';
 import type { LegalActions, PlayerAction } from '../types.js';
-import { estimateEquity, type RangeModel } from './equity.js';
-import { preflopPercentile } from './ranges.js';
+import { estimateEquity, hasFlushDraw, hasStraightDraw, type RangeModel } from './equity.js';
+import { OpponentTracker, type Profile } from './OpponentTracker.js';
+import {
+  BB_ISO, COLD_VS_3BET, OPEN, TIGHTER, VS_3BET, VS_4BET, VS_5BET, VS_OPEN, WIDER,
+  frequencyOf, type OpenSeat, type Response,
+} from './preflopCharts.js';
+import { handClass } from './ranges.js';
 
 /*
- * How a bot decides, in plain terms:
+ * How a bot decides, in plain terms. Every bot plays the same strong ("GTO-inspired")
+ * strategy, then bends it toward whatever its opponents do wrong:
  *
- *   1. Guess each opponent's range: which hands they could have, given how they've bet.
- *   2. Work out our equity: how often we'd win against those ranges (see equity.ts).
- *   3. Work out the pot odds: how much of the final pot we have to put in to call.
- *   4. Before the flop, mostly play by starting-hand ranges; after it, compare equity with
- *      pot odds: call when the price is right, bet or raise when we're well ahead.
- *
- * A personality sets how loose, aggressive and bluff-happy each bot is.
+ *   Before the flop  Solver-style charts (preflopCharts.ts) say which hands to raise, call or fold
+ *                    for each seat and situation, including mixed "raise 60% / call 40%" hands.
+ *   After the flop   Work out equity against what each opponent likely holds (equity.ts), then:
+ *                      - facing a bet: call whenever equity beats the pot odds, so bluffing it rarely pays
+ *                      - otherwise: bet good hands at mixed sizes, semi-bluff draws, bluff rivers at a
+ *                        measured rate, and sometimes slow-play a monster
+ *   Exploiting       OpponentTracker watches everyone. The bot bluffs more into players who fold
+ *                    too much, value-bets thinner against players who call too much, calls lighter
+ *                    against players who bet a lot, and widens or tightens its preflop charts to match.
  */
 
-export interface Personality {
-  label: string;
-  /** Share of starting hands the bot plays at all ("voluntarily put money in pot"). */
-  vpip: number;
-  /** Share of starting hands the bot opens with a raise ("pre-flop raise"). */
-  pfr: number;
-  /** Chance to bet or raise with a strong hand, rather than just checking or calling. */
-  aggression: number;
-  /** Chance to bet with a weak hand when nobody has bet yet. */
-  bluff: number;
-  /** Extra equity the bot wants on top of the pot odds before calling (negative = calls too much). */
-  callMargin: number;
-}
-
-export const PERSONALITIES: Record<string, Personality> = {
-  tag: { label: 'Tight-Aggressive', vpip: 0.22, pfr: 0.16, aggression: 0.75, bluff: 0.1, callMargin: 0.03 },
-  lag: { label: 'Loose-Aggressive', vpip: 0.38, pfr: 0.26, aggression: 0.85, bluff: 0.2, callMargin: 0 },
-  rock: { label: 'Tight-Passive', vpip: 0.15, pfr: 0.07, aggression: 0.35, bluff: 0.03, callMargin: 0.06 },
-  station: { label: 'Calling Station', vpip: 0.5, pfr: 0.08, aggression: 0.3, bluff: 0.05, callMargin: -0.07 },
-};
-
-export const BOT_ROSTER: { name: string; personality: string }[] = [
-  { name: 'Martin', personality: 'tag' },
-  { name: 'Ablett', personality: 'lag' },
-  { name: 'Ashcroft', personality: 'rock' },
-  { name: 'Franklin', personality: 'station' },
-  { name: 'Selwood', personality: 'tag' },
-  { name: 'Bontempelli', personality: 'lag' },
-  { name: 'Daicos', personality: 'rock' },
-];
+export const BOT_ROSTER: string[] = ['Martin', 'Ablett', 'Ashcroft', 'Franklin', 'Selwood', 'Bontempelli', 'Daicos'];
 
 // ── Tuning ───────────────────────────────────────────────────────────────
 
-/** Opening raise: 2.5–3.5 big blinds, plus one big blind for every player who just called. */
-const OPEN_RAISE_BIG_BLINDS = 2.5;
+/** Opening raise in big blinds (plus one big blind for every player who just called). */
+const OPEN_SIZE_BB = 2.5;
+const SB_OPEN_SIZE_BB = 3;
+/** Re-raise sizes, as multiples of the bet we're raising. Out of position we raise bigger. */
+const THREE_BET_IN_POSITION = 3;
+const THREE_BET_OUT_OF_POSITION = 4;
+const FOUR_BET = 2.3;
 
-/** When re-raising before the flop, raise to this many times the current bet. */
-const RERAISE_MULTIPLIER = 3;
-
-/** Hands this strong (top 3%) are always worth continuing with before the flop. */
-const PREMIUM_HAND = 0.03;
+/** Facing a raise bigger than this many big blinds before the flop, we decide on equity instead of charts. */
+const DEEP_COMMITMENT_BB = 25;
 
 /** After the flop: bet for value with this much more equity than an even share of the pot... */
-const VALUE_BET_EDGE = 0.12;
-/** ...and raise with this much more. */
-const RAISE_EDGE = 0.28;
+const VALUE_BET_EDGE = 0.1;
+/** ...and raise for value with this much more. */
+const RAISE_EDGE = 0.3;
+/** Equity that counts as a "monster" we might slow-play. */
+const MONSTER = 0.85;
+
+/** Base bluffing frequencies when checked to (heads-up; much less into several players). */
+const SEMI_BLUFF = 0.45; // with a flush or straight draw
+const AIR_BLUFF = 0.12; // with nothing on the flop or turn
+const RIVER_BLUFF = 0.22; // with nothing on the river (draws have missed; bluffs are what balance value bets)
+const MULTIWAY_BLUFF_FACTOR = 0.35;
 
 /** Going all in once a raise would put at least this share of our stack in anyway. */
 const COMMIT_THRESHOLD = 0.6;
 
-/** Position: late seats can play more hands, early seats should play fewer. */
-const LATE_POSITION_LOOSENESS = 1.3;
-const EARLY_POSITION_LOOSENESS = 0.8;
-
-/** What an opponent's betting tells us about their range (share of starting hands). */
-const RANGE_IF_THEY = {
-  openRaised: 0.2,
-  reRaised: 0.07,
-  limped: 0.5,
-  calledARaise: 0.3,
-};
-/** Each bet or raise after the flop narrows the range to this fraction; each call to this. */
-const NARROWING_PER_POSTFLOP_BET = 0.75;
-const NARROWING_PER_POSTFLOP_CALL = 0.9;
-/** We never assume a range tighter than this. */
-const TIGHTEST_RANGE = 0.04;
+/** A typical player folds to a bet this often; we bluff more or less as opponents fold more or less. */
+const TYPICAL_FOLD_TO_BET = 0.45;
 
 // ── Small helpers ────────────────────────────────────────────────────────
 
+const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const checkOrCall = (legal: LegalActions): PlayerAction => (legal.canCheck ? { type: 'check' } : { type: 'call' });
 const checkOrFold = (legal: LegalActions): PlayerAction => (legal.canCheck ? { type: 'check' } : { type: 'fold' });
 
-/** Of the final pot if we call, the share we'd be putting in. We need at least this much equity. */
-function potOdds(pot: number, toCall: number): number {
-  return toCall > 0 ? toCall / (pot + toCall) : 0;
+/** Equity needed to call: the share of the final pot that calling puts in. */
+const potOdds = (pot: number, toCall: number) => (toCall > 0 ? toCall / (pot + toCall) : 0);
+
+type Seat = OpenSeat | 'BB';
+
+/** Everyone dealt in, in preflop acting order after the blinds: small blind first, dealer last. */
+function actingOrder(table: GameState): Player[] {
+  const afterDealer = [...table.players.slice(table.dealerIndex + 1), ...table.players.slice(0, table.dealerIndex + 1)];
+  return afterDealer.filter((p) => p.holeCards.length > 0);
 }
 
-/** Everything a decision needs, worked out once. */
-interface Situation {
-  game: Game;
-  me: Player;
-  legal: LegalActions;
-  /** Our chance of winning against the opponents' guessed ranges (0–1). */
-  equity: number;
-  /** Equity needed to call profitably (0–1). */
-  potOdds: number;
-  opponentsInHand: number;
+/** A player's seat name, counted back from the button (dealer). */
+function seatOf(table: GameState, player: Player): Seat {
+  const order = actingOrder(table);
+  const position = order.indexOf(player);
+  if (order.length === 2) return player === table.players[table.dealerIndex] ? 'HU' : 'BB';
+  if (position === 0) return 'SB';
+  if (position === 1) return 'BB';
+  const fromButton = order.length - 1 - position;
+  return fromButton === 0 ? 'BTN' : fromButton === 1 ? 'CO' : fromButton === 2 ? 'HJ' : 'UTG';
 }
 
 /**
  * Decides actions from what a real player could see: its own cards, the board, the pot,
- * and how the opponents have bet this hand.
+ * how everyone has bet this hand, and how they've played in earlier hands (the tracker).
  */
 export class Bot {
-  private readonly style: Personality;
-
   constructor(
-    personality: string,
+    private readonly tracker: OpponentTracker = new OpponentTracker(),
     private readonly rng: Rng = mathRng,
     private readonly iterations = 700,
-  ) {
-    this.style = PERSONALITIES[personality] ?? PERSONALITIES.tag!;
-  }
+  ) {}
 
   decide(game: Game, me: Player): PlayerAction {
     const legal = game.legalActions(me.id);
     if (!legal) throw new Error(`${me.name} asked to act out of turn`);
-    const table = game.state;
-
-    // 1. Guess what each opponent still in the hand could be holding.
-    const opponents = table.players.filter((p) => p !== me && p.inHand);
-    const opponentRanges = opponents.map((opponent) => guessRange(table.handActions, opponent));
-
-    // 2 & 3. How often we'd win against those hands, and what the pot is offering us.
-    const situation: Situation = {
-      game,
-      me,
-      legal,
-      equity: estimateEquity(me.holeCards, table.board, opponentRanges, this.iterations, this.rng),
-      potOdds: potOdds(table.pot, legal.callAmount),
-      opponentsInHand: opponents.length,
-    };
-
-    // 4. Choose.
-    return table.street === 'preflop' ? this.playPreflop(situation) : this.playPostflop(situation);
+    return game.state.street === 'preflop' ? this.playPreflop(game, me, legal) : this.playPostflop(game, me, legal);
   }
 
-  // ── Before the flop: mostly starting-hand ranges ──────────────────────
+  // ── Before the flop: charts ───────────────────────────────────────────
 
-  private playPreflop({ game, me, legal, equity, potOdds }: Situation): PlayerAction {
+  private playPreflop(game: Game, me: Player, legal: LegalActions): PlayerAction {
     const table = game.state;
     const bigBlind = table.config.bigBlind;
-    const { vpip, pfr, callMargin } = this.style;
+    const hand = handClass(me.holeCards[0]!, me.holeCards[1]!);
+    const mySeat = seatOf(table, me);
+    const preflop = table.handActions.filter((a) => a.street === 'preflop');
+    const raises = preflop.filter((a) => a.kind === 'raise');
+    const callers = preflop.filter((a) => a.kind === 'call').length;
 
-    const handPercentile = preflopPercentile(me.holeCards[0]!, me.holeCards[1]!); // 0.05 = a top-5% hand
-    const looseness = this.positionLooseness(game, me);
-    const preflopActions = table.handActions.filter((a) => a.street === 'preflop');
-    const raisesSoFar = preflopActions.filter((a) => a.kind === 'raise').length;
-    const callersSoFar = preflopActions.filter((a) => a.kind === 'call').length;
+    // Facing a huge raise (often an all-in): charts assume deep stacks, so decide on equity.
+    if (legal.callAmount > DEEP_COMMITMENT_BB * bigBlind) return this.callOnEquity(game, me, legal);
 
-    // Nobody has raised: raise with our best hands, just call with playable ones, fold the rest.
-    if (raisesSoFar === 0) {
-      const inRaisingRange = handPercentile <= pfr * looseness;
-      const inPlayingRange = handPercentile <= vpip * looseness;
-      if (inRaisingRange && legal.canRaise) {
-        const size = bigBlind * (OPEN_RAISE_BIG_BLINDS + this.rng(3) * 0.5) + callersSoFar * bigBlind;
-        return this.raiseTo(legal, size);
+    // Nobody has raised yet.
+    if (raises.length === 0) {
+      if (mySeat === 'BB') {
+        // Everyone just called (or folded) to us: raise our best hands, check the rest for free.
+        return this.chance(frequencyOf(BB_ISO, hand)) && legal.canRaise
+          ? this.raiseTo(legal, bigBlind * (OPEN_SIZE_BB + 1 + callers))
+          : checkOrFold(legal);
       }
-      return inPlayingRange ? checkOrCall(legal) : checkOrFold(legal);
+      const chart = OPEN[this.openSeatAdjustedForBlinds(table, me, mySeat)];
+      if (this.chance(frequencyOf(chart, hand)) && legal.canRaise) {
+        const size = mySeat === 'SB' ? SB_OPEN_SIZE_BB : OPEN_SIZE_BB;
+        return this.raiseTo(legal, bigBlind * (size + callers));
+      }
+      return checkOrFold(legal);
     }
 
-    // Someone raised: re-raise with the very top of our range...
-    const reRaiseRange = pfr * (raisesSoFar === 1 ? 0.3 : 0.1);
-    if (handPercentile <= reRaiseRange && legal.canRaise) {
-      return this.raiseTo(legal, table.currentBet * RERAISE_MULTIPLIER);
+    const opener = table.player(raises[0]!.playerId)!;
+    const lastRaiser = table.player(raises[raises.length - 1]!.playerId)!;
+    const iOpened = raises[0]!.playerId === me.id;
+    const inPosition = mySeat !== 'SB' && mySeat !== 'BB';
+
+    // Facing one raise: re-raise, call or fold by seat; looser openers get played back at harder.
+    if (raises.length === 1) {
+      const openerProfile = this.tracker.profile(opener.id);
+      const openerSeat = seatOf(table, opener);
+      const openerIsLoose = openerProfile.pfr >= 0.28 || (openerSeat !== 'UTG' && openerSeat !== 'HJ');
+      const openerIsTight = openerProfile.pfr <= 0.1;
+      const late = openerIsLoose && !openerIsTight;
+      const response =
+        mySeat === 'BB' ? (late ? VS_OPEN.bbLate : VS_OPEN.bbEarly) : mySeat === 'SB' ? VS_OPEN.sb : late ? VS_OPEN.late : VS_OPEN.early;
+      const raiseSize = table.currentBet * (inPosition ? THREE_BET_IN_POSITION : THREE_BET_OUT_OF_POSITION) + callers * table.currentBet;
+      return this.respond(legal, hand, response, raiseSize);
     }
 
-    // ...otherwise call only with a hand worth continuing with, at a fair price.
-    const continueRange = vpip * (raisesSoFar === 1 ? 0.7 : 0.35);
-    const worthContinuing = handPercentile <= continueRange || handPercentile <= PREMIUM_HAND;
-    const priceIsRight = equity >= potOdds + callMargin;
-    return worthContinuing && priceIsRight ? checkOrCall(legal) : checkOrFold(legal);
+    // Facing a re-raise (3-bet). If we opened, defend wider against players who 3-bet a lot.
+    if (raises.length === 2) {
+      if (!iOpened) return this.respond(legal, hand, COLD_VS_3BET, table.currentBet * FOUR_BET);
+      const threeBetRate = this.tracker.profile(lastRaiser.id).threeBet;
+      const looseness = clamp(threeBetRate / 0.08, 0.6, 1.6); // typical 3-bet rate is ~8%
+      return this.respond(legal, hand, VS_3BET, table.currentBet * FOUR_BET, inPosition ? looseness : looseness * 0.8);
+    }
+
+    if (raises.length === 3) return this.respond(legal, hand, VS_4BET, legal.maxRaiseTo);
+    return this.respond(legal, hand, VS_5BET, legal.maxRaiseTo);
   }
 
-  // ── After the flop: equity against pot odds ───────────────────────────
+  /**
+   * Opens wider when the players still to act fold to raises a lot, tighter when they rarely do.
+   * (Mostly matters on the button and in the blinds, where stealing the blinds is the point.)
+   */
+  private openSeatAdjustedForBlinds(table: GameState, me: Player, seat: Seat): OpenSeat {
+    if (seat === 'BB') return 'BTN';
+    const order = actingOrder(table);
+    const stillToAct = order.slice(order.indexOf(me) + 1);
+    if (stillToAct.length === 0) return seat;
+    const foldRate = stillToAct.reduce((sum, p) => sum + this.tracker.profile(p.id).foldVsOpen, 0) / stillToAct.length;
+    if (foldRate >= 0.78) return WIDER[seat];
+    if (foldRate <= 0.45) return TIGHTER[seat];
+    return seat;
+  }
 
-  private playPostflop({ game, legal, equity, potOdds, opponentsInHand }: Situation): PlayerAction {
+  /** Raise with the chart's raising hands, else call with its calling hands, else fold (mixed by frequency). */
+  private respond(legal: LegalActions, hand: string, response: Response, raiseTo: number, callLooseness = 1): PlayerAction {
+    if (legal.canRaise && this.chance(frequencyOf(response.raise, hand))) return this.raiseTo(legal, raiseTo);
+    if (this.chance(clamp(frequencyOf(response.call, hand) * callLooseness, 0, 1))) return checkOrCall(legal);
+    // A hand we'd re-raise but can't (not enough chips behind to raise) is still worth a call.
+    if (!legal.canRaise && frequencyOf(response.raise, hand) > 0) return checkOrCall(legal);
+    return checkOrFold(legal);
+  }
+
+  /** For huge preflop bets: call if our equity against their likely range beats the price. */
+  private callOnEquity(game: Game, me: Player, legal: LegalActions): PlayerAction {
     const table = game.state;
-    const { aggression, bluff, callMargin } = this.style;
+    const opponents = table.players.filter((p) => p !== me && p.inHand);
+    const ranges = opponents.map((o) => this.guessRange(table.handActions, o));
+    const equity = estimateEquity(me.holeCards, table.board, ranges, this.iterations, this.rng);
+    return equity >= potOdds(table.pot, legal.callAmount) ? checkOrCall(legal) : checkOrFold(legal);
+  }
 
-    // With 3 players in the hand, an even share of the pot is 1/3; a good hand beats that comfortably.
-    const evenShare = 1 / (opponentsInHand + 1);
-    const goodEnoughToBet = equity >= evenShare + VALUE_BET_EDGE;
-    const goodEnoughToRaise = equity >= evenShare + RAISE_EDGE;
+  // ── After the flop: equity, balance and exploits ──────────────────────
 
-    // Nobody has bet yet.
+  private playPostflop(game: Game, me: Player, legal: LegalActions): PlayerAction {
+    const table = game.state;
+    const opponents = table.players.filter((p) => p !== me && p.inHand);
+    const profiles = opponents.map((o) => this.tracker.profile(o.id));
+    const ranges = opponents.map((o) => this.guessRange(table.handActions, o));
+    const equity = estimateEquity(me.holeCards, table.board, ranges, this.iterations, this.rng);
+
+    const river = table.street === 'river';
+    const drawing = !river && (hasFlushDraw(me.holeCards, table.board) || hasStraightDraw(me.holeCards, table.board));
+    const evenShare = 1 / (opponents.length + 1);
+    const headsUp = opponents.length === 1;
+
+    // Exploits. A bluff only works if everyone folds, so plan around the stickiest opponent.
+    const stickiest = Math.min(...profiles.map((p) => p.foldToBet));
+    const bluffMultiplier = clamp(stickiest / TYPICAL_FOLD_TO_BET, 0.25, 1.8);
+    // Against players who call too much, bet thinner for value (and vice versa).
+    const valueEdge = VALUE_BET_EDGE - clamp((TYPICAL_FOLD_TO_BET - stickiest) * 0.3, -0.04, 0.06);
+    const mostAggressive = Math.max(...profiles.map((p) => p.aggression));
+
+    // ── Nobody has bet yet ──
     if (legal.canCheck) {
-      if (legal.canRaise && goodEnoughToBet && this.chance(aggression)) {
-        return this.raiseTo(legal, table.pot * (0.5 + this.rng(300) / 1000)); // half to 80% of the pot
+      if (legal.canRaise && equity >= evenShare + valueEdge) {
+        // Slow-play some monsters heads-up, more against players who like to bet for us.
+        const slowPlay = equity >= MONSTER && headsUp && !river ? 0.12 + 0.25 * mostAggressive : 0;
+        if (this.chance(slowPlay)) return { type: 'check' };
+        const size = equity >= MONSTER ? this.pick(river ? [0.75, 1.1] : [0.66, 0.75]) : this.pick([0.33, 0.5, 0.66]);
+        return this.raiseTo(legal, table.pot * size);
       }
-      // Bluffs work best against one opponent, and less on the river where draws have missed or hit.
-      const bluffChance = bluff * (opponentsInHand === 1 ? 1 : 0.4) * (table.street === 'river' ? 0.6 : 1);
-      if (legal.canRaise && this.chance(bluffChance)) return this.raiseTo(legal, table.pot * 0.55);
+      if (legal.canRaise && equity < evenShare) {
+        const base = drawing ? SEMI_BLUFF : river ? RIVER_BLUFF : AIR_BLUFF;
+        const bluffChance = base * (headsUp ? 1 : MULTIWAY_BLUFF_FACTOR) * bluffMultiplier;
+        // Bluffs use the same big sizes as strong value bets, so a big bet doesn't give the hand away.
+        if (this.chance(bluffChance)) return this.raiseTo(legal, table.pot * (drawing ? this.pick([0.5, 0.66]) : this.pick([0.66, 0.75])));
+      }
       return { type: 'check' };
     }
 
-    // Someone has bet.
-    if (legal.canRaise && goodEnoughToRaise && this.chance(aggression)) {
+    // ── Someone has bet ──
+    if (legal.canRaise && equity >= evenShare + RAISE_EDGE && this.chance(0.7)) {
+      return this.raiseTo(legal, table.currentBet + (table.pot + legal.callAmount) * 0.8);
+    }
+    // Semi-bluff raise with a strong draw now and then (the draw is the backup plan when called).
+    if (legal.canRaise && drawing && equity >= 0.3 && this.chance(0.2 * bluffMultiplier)) {
       return this.raiseTo(legal, table.currentBet + (table.pot + legal.callAmount) * 0.75);
     }
-    const priceIsRight = equity >= potOdds + callMargin;
-    return priceIsRight ? { type: 'call' } : { type: 'fold' };
+    // Call whenever the price is right. The bettor's range includes bluffs at the rate they've
+    // shown us, so players who bet too much get called down lighter.
+    return equity >= potOdds(table.pot, legal.callAmount) ? { type: 'call' } : { type: 'fold' };
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────
@@ -217,6 +255,10 @@ export class Bot {
   /** True with the given probability (0–1). */
   private chance(probability: number): boolean {
     return this.rng(1000) / 1000 < probability;
+  }
+
+  private pick<T>(options: T[]): T {
+    return options[this.rng(options.length)]!;
   }
 
   /**
@@ -230,56 +272,37 @@ export class Bot {
   }
 
   /**
-   * Players who act last see more before deciding, so they can play more hands.
-   * Returns a multiplier for our ranges: >1 in late position, <1 in early position.
+   * Guesses an opponent's range from this hand's bets, sized by how they've played before:
+   * someone who raises 40% of hands gets a 40% raising range, not the typical 18%.
    */
-  private positionLooseness(game: Game, me: Player): number {
-    const table = game.state;
-    // Everyone dealt in, in the order they act: small blind first, the dealer (button) last.
-    const afterDealer = [...table.players.slice(table.dealerIndex + 1), ...table.players.slice(0, table.dealerIndex + 1)];
-    const actingOrder = afterDealer.filter((p) => p.holeCards.length > 0);
-    const position = actingOrder.indexOf(me);
-    const playersDealt = actingOrder.length;
+  private guessRange(actions: ActionRecord[], opponent: Player): RangeModel {
+    const profile: Profile = this.tracker.profile(opponent.id);
+    let range = 1;
+    let aggressivePostflop = false;
+    let raisesSoFar = 0;
 
-    const shortHanded = playersDealt <= 3;
-    const cutoffOrButton = position >= playersDealt - 2;
-    const blinds = position <= 1;
-    const earlySeat = position <= 3;
-
-    if (shortHanded || cutoffOrButton) return LATE_POSITION_LOOSENESS;
-    if (blinds) return 1;
-    return earlySeat ? EARLY_POSITION_LOOSENESS : 1;
-  }
-}
-
-/**
- * Guesses an opponent's range from their bets this hand. Everyone starts on "any two cards";
- * each strong action narrows it:
- *   - before the flop: open raise → top 20%, re-raise → top 7%, call → top 50% (30% if facing a raise)
- *   - after the flop: every bet or raise → 75% of what it was, every call → 90%
- */
-function guessRange(actions: ActionRecord[], opponent: Player): RangeModel {
-  let range = 1;
-  let aggressivePostflop = false;
-  let raisesSoFar = 0;
-
-  for (const action of actions) {
-    const theirs = action.playerId === opponent.id;
-
-    if (action.street === 'preflop') {
-      if (theirs && action.kind === 'raise') {
-        range = Math.min(range, raisesSoFar === 0 ? RANGE_IF_THEY.openRaised : RANGE_IF_THEY.reRaised);
+    for (const action of actions) {
+      const theirs = action.playerId === opponent.id;
+      if (action.street === 'preflop') {
+        if (theirs && action.kind === 'raise') {
+          range = Math.min(range, raisesSoFar === 0 ? clamp(profile.pfr, 0.05, 0.5) : clamp(profile.threeBet, 0.03, 0.2));
+        } else if (theirs && action.kind === 'call') {
+          range = Math.min(range, raisesSoFar === 0 ? clamp(profile.vpip, 0.1, 0.8) : clamp(profile.vpip * 0.6, 0.06, 0.5));
+        }
+        if (action.kind === 'raise') raisesSoFar++;
+      } else if (theirs && (action.kind === 'bet' || action.kind === 'raise')) {
+        range *= 0.75;
+        aggressivePostflop = true;
       } else if (theirs && action.kind === 'call') {
-        range = Math.min(range, raisesSoFar === 0 ? RANGE_IF_THEY.limped : RANGE_IF_THEY.calledARaise);
+        range *= 0.9;
       }
-      if (action.kind === 'raise') raisesSoFar++;
-    } else if (theirs && (action.kind === 'bet' || action.kind === 'raise')) {
-      range *= NARROWING_PER_POSTFLOP_BET;
-      aggressivePostflop = true;
-    } else if (theirs && action.kind === 'call') {
-      range *= NARROWING_PER_POSTFLOP_CALL;
     }
-  }
 
-  return { maxPercentile: Math.max(TIGHTEST_RANGE, range), aggressivePostflop };
+    return {
+      maxPercentile: Math.max(0.04, range),
+      aggressivePostflop,
+      // How often their bets are bluffs: in line with how aggressive they've been.
+      bluffShare: clamp(profile.aggression, 0.1, 0.7),
+    };
+  }
 }

@@ -88,14 +88,21 @@ export class WebServer {
 
   private broadcast(msg: object): void {
     const data = JSON.stringify(msg);
-    for (const ws of this.wss?.clients ?? []) if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    for (const ws of this.wss?.clients ?? []) {
+      if (ws.readyState === WebSocket.OPEN){
+         ws.send(data);
+         }
+    }
   }
 
   stop(): void {
     this.conn.off('view', this.push);
     this.conn.off('error', this.pushError);
     this.conn.off('status', this.pushStatus);
-    for (const ws of this.wss?.clients ?? []) ws.close(1001, 'Table closed');
+    for (const ws of this.wss?.clients ?? []){ 
+      
+      ws.close(1001, 'Table closed');
+    }
     this.wss?.close();
     this.http?.close();
   }

@@ -19,13 +19,18 @@ export interface RangeModel {
   maxPercentile: number;
   /** They've bet or raised since the flop, so they probably connected with the board. */
   aggressivePostflop: boolean;
+  /**
+   * For an aggressive opponent: the chance a hand with nothing (no pair, no draw) is still
+   * in their range, i.e. how often they bluff. Defaults to 1 in 3; players who bet a lot get more.
+   */
+  bluffShare?: number;
 }
 
 /** How many random hands we try before accepting any hand for an opponent. */
 const MAX_DEAL_ATTEMPTS = 40;
 
-/** Someone betting after the flop with nothing (no pair, no draw) gets through 1 time in 3. */
-const BLUFF_ODDS = 3;
+/** Unless we know better: someone betting after the flop has nothing 1 time in 3. */
+const DEFAULT_BLUFF_SHARE = 1 / 3;
 
 /**
  * Our expected share of the pot, from 0 (never win) to 1 (always win).
@@ -95,23 +100,23 @@ function handFitsRange(hand: Card[], board: Card[], range: RangeModel, rng: Rng)
   // They've been betting since the flop: they usually have a pair or better, or a draw...
   if (hasMadeHand(hand, board) || hasFlushDraw(hand, board) || hasStraightDraw(hand, board)) return true;
   // ...but sometimes they're bluffing.
-  return rng(BLUFF_ODDS) === 0;
+  return rng(1000) / 1000 < (range.bluffShare ?? DEFAULT_BLUFF_SHARE);
 }
 
 /** At least a pair using the board. */
-function hasMadeHand(hand: Card[], board: Card[]): boolean {
+export function hasMadeHand(hand: Card[], board: Card[]): boolean {
   return evaluateHand([...hand, ...board]).category > HandCategory.HighCard;
 }
 
 /** Four cards of one suit: one more makes a flush. */
-function hasFlushDraw(hand: Card[], board: Card[]): boolean {
+export function hasFlushDraw(hand: Card[], board: Card[]): boolean {
   const countBySuit = new Map<string, number>();
   for (const card of [...hand, ...board]) countBySuit.set(card.suit, (countBySuit.get(card.suit) ?? 0) + 1);
   return [...countBySuit.values()].some((count) => count >= 4);
 }
 
 /** Four of the five ranks of some straight: one more card makes it. */
-function hasStraightDraw(hand: Card[], board: Card[]): boolean {
+export function hasStraightDraw(hand: Card[], board: Card[]): boolean {
   const ranks = new Set([...hand, ...board].map((card) => card.rank));
   if (ranks.has(14)) ranks.add(1); // an ace also plays low, in A-2-3-4-5
 

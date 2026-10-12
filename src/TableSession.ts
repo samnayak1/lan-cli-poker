@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { BOT_ROSTER, Bot } from './ai/Bot.js';
+import { OpponentTracker } from './ai/OpponentTracker.js';
 import { Game } from './engine/Game.js';
 import { DEFAULT_CONFIG, GameState, type GameConfig } from './engine/GameState.js';
 import { Player } from './engine/Player.js';
@@ -44,6 +45,8 @@ export class TableSession extends EventEmitter {
   private nextHandAt: number | null = null;
   private timer: NodeJS.Timeout | null = null;
   private readonly bots = new Map<string, Bot>();
+  /** How everyone at the table plays, learned hand by hand; all bots share it to exploit opponents. */
+  private readonly tracker = new OpponentTracker();
   private readonly bustOrder: string[] = [];
   /** Hands won per player id, for the trophies next to their names. */
   private readonly handsWon = new Map<string, number>();
@@ -64,7 +67,7 @@ export class TableSession extends EventEmitter {
       this.localId = opts.resume.hostPlayerId;
       for (const p of state.players) {
         this.savedIds.add(p.id);
-        if (p.isBot) this.bots.set(p.id, new Bot(p.personality ?? 'tag'));
+        if (p.isBot) this.bots.set(p.id, new Bot(this.tracker));
         else if (p.id !== this.localId) {
           p.reserved = true;
           p.connected = false;
@@ -146,10 +149,10 @@ export class TableSession extends EventEmitter {
     if (this.phase !== 'lobby' || this.state.players.length >= this.maxPlayers) return;
     if (this.botCount >= MAX_BOTS) return this.flash(`A table can have at most ${MAX_BOTS} bots`);
     const taken = new Set(this.state.players.map((p) => p.name));
-    const pick = BOT_ROSTER.find((b) => !taken.has(b.name)) ?? { name: `Bot ${this.state.players.length}`, personality: 'tag' };
-    const bot = new Player({ id: newId(), name: pick.name, chips: this.state.config.startingChips, kind: 'bot', personality: pick.personality });
+    const name = BOT_ROSTER.find((n) => !taken.has(n)) ?? `Bot ${this.state.players.length}`;
+    const bot = new Player({ id: newId(), name, chips: this.state.config.startingChips, kind: 'bot' });
     this.state.players.push(bot);
-    this.bots.set(bot.id, new Bot(pick.personality));
+    this.bots.set(bot.id, new Bot(this.tracker));
     this.changed();
   }
 
@@ -173,8 +176,7 @@ export class TableSession extends EventEmitter {
         p.reserved = false;
         p.connected = true;
         p.kind = 'bot';
-        p.personality = 'tag';
-        this.bots.set(p.id, new Bot('tag'));
+        this.bots.set(p.id, new Bot(this.tracker));
       } else {
         const idx = s.players.indexOf(p);
         s.players.splice(idx, 1);
@@ -312,6 +314,7 @@ export class TableSession extends EventEmitter {
     const s = this.state;
     this.phase = 'handOver';
     for (const p of s.players) if (p.chips === 0 && !this.bustOrder.includes(p.id)) this.bustOrder.push(p.id);
+    this.tracker.recordHand(s.players.filter((p) => p.holeCards.length > 0).map((p) => p.id), s.handActions);
     const winners = new Set(s.lastHand?.pots.flatMap((pot) => pot.winners.map((w) => w.id)) ?? []);
     for (const id of winners) this.handsWon.set(id, (this.handsWon.get(id) ?? 0) + 1);
 

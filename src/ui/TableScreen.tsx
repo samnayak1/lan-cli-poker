@@ -6,7 +6,6 @@ import type { ConnectionStatus } from '../net/connection.js';
 import type { HandSummary, SeatView, TableView } from '../types.js';
 import { Cards, KeyHint } from './components.js';
 
-const STYLE_TAGS: Record<string, string> = { tag: 'TAG', lag: 'LAG', rock: 'ROCK', station: 'STATION' };
 const fmt = (n: number) => n.toLocaleString();
 
 function useTableView(table: LaunchedTable) {
@@ -228,7 +227,7 @@ function Lobby({ view }: { view: TableView }) {
             <Box width={18}>
               <Text color={s.reserved ? 'gray' : undefined}>{s.name}</Text>
             </Box>
-            {s.isBot && <Text color="magenta">bot · {STYLE_TAGS[s.botStyle ?? ''] ?? ''}</Text>}
+            {s.isBot && <Text color="magenta">bot</Text>}
             {s.reserved && <Text color="gray">saved seat — waiting to rejoin</Text>}
             {lobby.resumed && <Text color="yellow">{fmt(s.chips)}</Text>}
           </Box>
@@ -283,7 +282,7 @@ function SeatRow({ seat: s, view, now, hideCards }: { seat: SeatView; view: Tabl
       </Box>
       <Box width={8}>
         <Text color="magenta" dimColor={dim}>
-          {s.isBot ? (STYLE_TAGS[s.botStyle ?? ''] ?? 'BOT') : ''}
+          {s.isBot ? 'BOT' : ''}
         </Text>
       </Box>
       <Box width={9} justifyContent="flex-end">
