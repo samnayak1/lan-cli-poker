@@ -1,18 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import WebSocket, { WebSocketServer } from 'ws';
-import { PAGE_HTML, PEOPLE_WEBP } from '../generated/assets.js';
+import { PAGE_HTML } from '../generated/assets.js';
 import type { TableConnection } from '../net/connection.js';
 import { parseMessage, type ClientMessage } from '../net/protocol.js';
 import type { TableView } from '../types.js';
 
-// The page and images are compiled in (scripts/embed-assets.mjs), so nothing is read from disk:
+// The page is compiled in (scripts/embed-assets.mjs), so nothing is read from disk:
 // the same code works from npm and as a single standalone executable.
 
-/** The crowd faces. Only these exact files are ever served — no path handling. */
-function loadPeople(): Map<string, Buffer> {
-  return new Map(Object.entries(PEOPLE_WEBP).map(([name, base64]) => [`/people/${name}`, Buffer.from(base64, 'base64')]));
-}
 
 /**
  * Localhost-only mirror of the terminal table: the browser sees the same view and can act
@@ -32,10 +28,9 @@ export class WebServer {
 
   async start(preferredPort: number): Promise<string> {
     const page = PAGE_HTML;
-    const people = loadPeople();
     for (let port = preferredPort; port < preferredPort + 20; port++) {
       try {
-        await this.listen(port, page, people);
+        await this.listen(port, page);
         this.url = `http://127.0.0.1:${port}/?t=${this.token}`;
         break;
       } catch (err) {
@@ -49,14 +44,12 @@ export class WebServer {
     return this.url;
   }
 
-  private listen(port: number, page: string, people: Map<string, Buffer>): Promise<void> {
+  private listen(port: number, page: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const http = createServer((req, res) => {
         const path = (req.url ?? '/').split('?')[0];
         if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).end(page);
-        } else if (req.method === 'GET' && people.has(path!)) {
-          res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'max-age=86400' }).end(people.get(path!));
         } else {
           res.writeHead(404).end('Not found');
         }

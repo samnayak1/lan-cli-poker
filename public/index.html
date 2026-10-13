@@ -69,7 +69,7 @@
   .logo .bulb:nth-child(odd) { animation: twinkle 1.1s steps(1) infinite; }
   .logo .bulb:nth-child(even) { animation: twinkle 1.1s steps(1) infinite .55s; }
   @keyframes twinkle { 50% { fill: #fff6c9; } }
-  header .meta { color: #fff; }
+  header .meta { color: #fff; padding: 4px 11px; border-radius: 999px; background: rgba(15,23,42,.7); text-shadow: none; }
   /* Connection sign, top right: a quiet green "Connected", amber while connecting, a red sign when cut off. */
   header .status {
     margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
@@ -304,7 +304,6 @@
   }
   aside h2 { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate-muted); margin: 0 0 10px; }
   .log { flex: 1; min-height: 0; overflow-y: auto; font-size: 14px; line-height: 1.6; }
-  .log div { animation: fadeIn .3s ease; }
   .log .sep { color: #fbbf24; margin-top: 6px; }
   .log .win {
     display: flex; align-items: flex-start; gap: 6px; margin: 4px 0; padding: 4px 8px; border-radius: 6px;
@@ -374,7 +373,8 @@
 </head>
 <body>
 
-<!-- One room: a homely poker room seen from above, zoomed in close on the table. People are placed by drawCrowd(). -->
+<!-- The room around the table, seen from above. One of three scenes (arena, ski lodge, beach) is
+     picked at random on each visit and drawn by drawScene(); the arena's fans are added by drawCrowd(). -->
 <svg class="casino" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
     <!-- Warm wooden floorboards -->
@@ -383,6 +383,157 @@
       <rect y="15" width="240" height="15" fill="#9d6b43"/>
       <path d="M0 15 H240 M0 30 H240 M90 0 V15 M200 15 V30" stroke="#7d5232" stroke-width="1.2"/>
     </pattern>
+    <!-- Snow, with a little sparkle -->
+    <pattern id="snow" width="90" height="90" patternUnits="userSpaceOnUse">
+      <rect width="90" height="90" fill="#eef4fb"/>
+      <circle cx="14" cy="20" r="1.6" fill="#ffffff"/><circle cx="60" cy="12" r="1.2" fill="#cbd9ea"/>
+      <circle cx="38" cy="58" r="1.4" fill="#ffffff"/><circle cx="76" cy="70" r="1.6" fill="#cbd9ea"/>
+      <path d="M0 80 Q22 72 45 80 T90 80" fill="none" stroke="#dbe6f3" stroke-width="2"/>
+    </pattern>
+    <!-- Sand -->
+    <pattern id="sand" width="70" height="70" patternUnits="userSpaceOnUse">
+      <rect width="70" height="70" fill="#f1d9a4"/>
+      <circle cx="10" cy="14" r="1.3" fill="#d9bd82"/><circle cx="44" cy="8" r="1" fill="#e2c890"/>
+      <circle cx="28" cy="40" r="1.2" fill="#d9bd82"/><circle cx="58" cy="52" r="1.4" fill="#e2c890"/>
+      <circle cx="16" cy="62" r="1" fill="#d9bd82"/>
+    </pattern>
+    <!-- Mown lawn: light and dark stripes with a few tufts -->
+    <pattern id="lawn" width="120" height="120" patternUnits="userSpaceOnUse">
+      <rect width="60" height="120" fill="#74c255"/><rect x="60" width="60" height="120" fill="#67b449"/>
+      <path d="M14 30 l3 -7 l3 7 M40 84 l3 -7 l3 7 M76 18 l3 -7 l3 7 M98 70 l3 -7 l3 7 M24 108 l3 -7 l3 7" fill="none" stroke="#4f9a36" stroke-width="2"/>
+    </pattern>
+    <!-- Honey-coloured basket-weave parquet -->
+    <pattern id="parquet" width="80" height="80" patternUnits="userSpaceOnUse">
+      <rect width="80" height="80" fill="#cf9b63"/>
+      <rect x="40" width="40" height="40" fill="#c08b55"/><rect y="40" width="40" height="40" fill="#c08b55"/>
+      <path d="M0 13.3 H40 M0 26.6 H40 M53.3 0 V40 M66.6 0 V40 M40 53.3 H80 M40 66.6 H80 M13.3 40 V80 M26.6 40 V80" stroke="#a5743f" stroke-width="1"/>
+      <path d="M0 0 H80 M0 40 H80 M0 0 V80 M40 0 V80" stroke="#8a5a32" stroke-width="1.6"/>
+    </pattern>
+    <!-- Studio stage carpet: deep blue with a faint diamond weave -->
+    <pattern id="stageCarpet" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#1e3a5f"/>
+      <path d="M20 4 L36 20 L20 36 L4 20 Z" fill="none" stroke="#28507e" stroke-width="2"/>
+    </pattern>
+    <!-- Casino hallway carpet: deep red with gold diamonds -->
+    <pattern id="casinoCarpet" width="60" height="60" patternUnits="userSpaceOnUse">
+      <rect width="60" height="60" fill="#7f1d1d"/>
+      <path d="M30 6 L44 30 L30 54 L16 30 Z" fill="#991b1b" stroke="#d97706" stroke-width="2"/>
+      <circle cx="30" cy="30" r="5" fill="#f59e0b"/>
+      <g fill="#1e3a8a"><circle cx="0" cy="0" r="6"/><circle cx="60" cy="0" r="6"/><circle cx="0" cy="60" r="6"/><circle cx="60" cy="60" r="6"/></g>
+    </pattern>
+    <radialGradient id="spotlight"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="lampGlow"><stop offset="0" stop-color="#fde68a" stop-opacity=".7"/><stop offset="1" stop-color="#fde68a" stop-opacity="0"/></radialGradient>
+    <!-- Slot machine, front view; --c1 is the cabinet colour -->
+    <symbol id="slot" viewBox="0 0 66 90">
+      <rect x="4" y="0" width="52" height="16" rx="6" fill="var(--c1)"/>
+      <text x="30" y="12" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" font-weight="900" fill="#fde047">JACKPOT</text>
+      <rect x="2" y="14" width="56" height="62" rx="5" fill="var(--c1)"/>
+      <rect x="8" y="22" width="44" height="26" rx="3" fill="#fff"/>
+      <path d="M22.5 22 V48 M37.5 22 V48" stroke="#cbd5e1" stroke-width="1.5"/>
+      <g font-family="system-ui, sans-serif" font-weight="900" font-size="14" text-anchor="middle" fill="#dc2626">
+        <text x="15" y="40">7</text><text x="30" y="40">7</text><text x="45" y="40">7</text></g>
+      <rect x="8" y="54" width="44" height="6" rx="2" fill="#111827"/>
+      <circle cx="16" cy="67" r="3" fill="#ef4444"/><circle cx="26" cy="67" r="3" fill="#22c55e"/><circle cx="36" cy="67" r="3" fill="#f59e0b"/>
+      <rect x="0" y="76" width="60" height="12" rx="3" fill="#1f2937"/>
+      <path d="M57 44 H61 V22" fill="none" stroke="#9ca3af" stroke-width="3"/><circle cx="61" cy="19" r="4.5" fill="#ef4444"/>
+    </symbol>
+    <!-- TV camera on a tripod, seen from above, pointing along +x -->
+    <g id="tv-camera">
+      <path d="M0 0 L0 30 M0 0 L-26 -15 M0 0 L26 -15" stroke="#6b7280" stroke-width="4" stroke-linecap="round"/>
+      <rect x="-30" y="-9" width="10" height="18" rx="3" fill="#374151"/>
+      <rect x="-22" y="-14" width="42" height="28" rx="5" fill="#1f2937"/>
+      <rect x="-14" y="-10" width="22" height="5" rx="2" fill="#f8fafc" opacity=".8"/>
+      <rect x="18" y="-9" width="24" height="18" rx="3" fill="#111827"/>
+      <circle cx="42" cy="0" r="8" fill="#1e3a8a" stroke="#60a5fa" stroke-width="2"/>
+      <circle cx="-12" cy="8" r="4" fill="#ef4444"/><circle cx="-12" cy="8" r="8" fill="#ef4444" opacity=".3"/>
+    </g>
+    <!-- Patio decking -->
+    <pattern id="patio" width="180" height="32" patternUnits="userSpaceOnUse">
+      <rect width="180" height="32" fill="#c08a5a"/><rect y="16" width="180" height="16" fill="#b47f50"/>
+      <path d="M0 16 H180 M0 32 H180 M64 0 V16 M150 16 V32" stroke="#8a5d3b" stroke-width="1.4"/>
+      <circle cx="58" cy="8" r="1.3" fill="#6b4226"/><circle cx="70" cy="8" r="1.3" fill="#6b4226"/>
+    </pattern>
+    <!-- Red gingham, for tablecloths and picnic blankets -->
+    <pattern id="gingham" width="16" height="16" patternUnits="userSpaceOnUse">
+      <rect width="16" height="16" fill="#fff"/>
+      <rect width="8" height="16" fill="#dc2626" opacity=".45"/><rect width="16" height="8" fill="#dc2626" opacity=".45"/>
+    </pattern>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0369a1"/><stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <radialGradient id="embers"><stop offset="0" stop-color="#fde047"/><stop offset=".5" stop-color="#f97316"/><stop offset="1" stop-color="#b91c1c"/></radialGradient>
+    <radialGradient id="fireGlow"><stop offset="0" stop-color="#fb923c" stop-opacity=".45"/><stop offset="1" stop-color="#fb923c" stop-opacity="0"/></radialGradient>
+
+    <!-- A table of winter food from above: coffee, mushrooms, hot chocolate, gingerbread and cinnamon rolls -->
+    <g id="steam" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".8">
+      <path d="M-4 0 q5 -6 0 -12 q-5 -6 0 -12"/><path d="M4 -2 q5 -6 0 -12 q-5 -6 0 -12"/>
+    </g>
+    <g id="coffee-mug"><rect x="9" y="-3" width="9" height="6" rx="3" fill="#f8fafc"/><circle r="12" fill="#f8fafc"/>
+      <circle r="9" fill="#5b3216"/><ellipse cx="-2" cy="-2" rx="4" ry="2.5" fill="#c08a5a" opacity=".7"/></g>
+    <g id="cocoa-mug"><rect x="9" y="-3" width="9" height="6" rx="3" fill="var(--c1)"/><circle r="12" fill="var(--c1)"/>
+      <circle r="9" fill="#7c3f1d"/><rect x="-5" y="-5" width="4" height="4" rx="1" fill="#fff"/><rect x="1" y="-2" width="4" height="4" rx="1" fill="#fff"/>
+      <rect x="-3" y="2" width="4" height="4" rx="1" fill="#fde2e4"/></g>
+    <g id="mushroom"><path d="M-8 1 A8 7 0 0 1 8 1 Z" fill="#8b5a2b"/><rect x="-3" y="1" width="6" height="7" rx="2" fill="#f3e2c3"/></g>
+    <g id="toadstool"><circle r="11" fill="#dc2626"/><circle cx="-4" cy="-4" r="2.4" fill="#fff"/><circle cx="4" cy="-2" r="2" fill="#fff"/>
+      <circle cx="-1" cy="5" r="2.2" fill="#fff"/><circle cx="6" cy="5" r="1.4" fill="#fff"/></g>
+    <g id="gingerbread" fill="#b8692e"><circle cy="-9" r="5"/><rect x="-5" y="-5" width="10" height="11" rx="3"/>
+      <rect x="-10" y="-4" width="20" height="4" rx="2"/><rect x="-5" y="4" width="4" height="9" rx="2"/><rect x="1" y="4" width="4" height="9" rx="2"/>
+      <circle cy="-1" r="1" fill="#fff"/><circle cy="3" r="1" fill="#fff"/><path d="M-2 -8 h4" stroke="#fff" stroke-width="1"/></g>
+    <g id="cinnamon-roll"><circle r="10" fill="#c98a4b"/><path d="M0 0 m-1 0 a2 2 0 1 1 3 1 a4 4 0 1 1 -6 -2 a6 6 0 1 1 9 4" fill="none" stroke="#8a4f1f" stroke-width="1.6"/>
+      <path d="M-6 -3 q4 3 8 -1" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></g>
+    <symbol id="winter-feast" viewBox="0 0 110 500">
+      <rect width="110" height="500" rx="10" fill="#7c4a2a"/>
+      <rect x="6" y="6" width="98" height="488" rx="6" fill="url(#gingham)"/>
+      <!-- microwave -->
+      <rect x="10" y="12" width="90" height="62" rx="6" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
+      <rect x="16" y="18" width="56" height="50" rx="4" fill="#1f2937"/>
+      <path d="M22 24 L36 24 L22 40 Z" fill="#fff" opacity=".18"/><circle cx="44" cy="52" r="10" fill="#f8fafc" opacity=".25"/>
+      <rect x="76" y="20" width="20" height="10" rx="2" fill="#064e3b"/>
+      <text x="86" y="28" font-size="8" font-family="monospace" fill="#4ade80" text-anchor="middle">0:30</text>
+      <g fill="#9ca3af"><circle cx="80" cy="38" r="2.5"/><circle cx="87" cy="38" r="2.5"/><circle cx="94" cy="38" r="2.5"/>
+        <circle cx="80" cy="46" r="2.5"/><circle cx="87" cy="46" r="2.5"/><circle cx="94" cy="46" r="2.5"/></g>
+      <rect x="77" y="54" width="18" height="8" rx="3" fill="#ef4444"/>
+      <g transform="translate(0 84)">
+      <!-- coffee pot and two mugs -->
+      <g transform="translate(38 46)"><path d="M18 -6 L32 -14 L30 -8 L20 2 Z" fill="#334155"/><path d="M-18 -8 Q-30 0 -18 8" fill="none" stroke="#334155" stroke-width="5"/>
+        <circle r="20" fill="#334155"/><circle r="14" fill="#475569"/><circle r="4" fill="#1e293b"/></g>
+      <use href="#steam" transform="translate(38 22)"/>
+      <use href="#coffee-mug" transform="translate(80 40)"/><use href="#steam" transform="translate(80 26)"/>
+      <use href="#coffee-mug" transform="translate(76 84)"/><use href="#steam" transform="translate(76 70)"/>
+      <!-- skillet of mushrooms with herbs -->
+      <g transform="translate(50 148)"><rect x="30" y="-5" width="28" height="10" rx="4" fill="#111827"/>
+        <circle r="34" fill="#1f2937"/><circle r="29" fill="#374151"/>
+        <use href="#mushroom" x="-14" y="-14"/><use href="#mushroom" x="6" y="-16"/><use href="#mushroom" x="-18" y="6"/>
+        <use href="#mushroom" x="2" y="2"/><use href="#mushroom" x="16" y="0"/><use href="#mushroom" x="-4" y="16"/><use href="#mushroom" x="14" y="16"/>
+        <g fill="#16a34a"><circle cx="-6" cy="-4" r="1.6"/><circle cx="10" cy="-8" r="1.6"/><circle cx="-12" cy="14" r="1.6"/><circle cx="6" cy="12" r="1.6"/></g></g>
+      <use href="#steam" transform="translate(50 108)"/>
+      <!-- board of red toadstool mushrooms -->
+      <rect x="14" y="200" width="82" height="72" rx="10" fill="#c08a5a"/><rect x="18" y="204" width="74" height="64" rx="8" fill="none" stroke="#a16f42" stroke-width="2"/>
+      <use href="#toadstool" x="36" y="222"/><use href="#toadstool" x="72" y="230"/><use href="#toadstool" x="48" y="252"/>
+      <!-- hot chocolate with marshmallows -->
+      <use href="#cocoa-mug" transform="translate(30 306)" style="--c1:#16a34a"/><use href="#steam" transform="translate(30 292)"/>
+      <use href="#cocoa-mug" transform="translate(74 306)" style="--c1:#dc2626"/><use href="#steam" transform="translate(74 292)"/>
+      <!-- gingerbread on a plate -->
+      <circle cx="55" cy="372" r="32" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+      <use href="#gingerbread" transform="translate(42 368) rotate(-15)"/><use href="#gingerbread" transform="translate(68 366) rotate(12)"/>
+      <use href="#gingerbread" transform="translate(55 384) rotate(-3)"/>
+      </g>
+    </symbol>
+    <!-- Pine tree from above, dusted with snow -->
+    <symbol id="pine" viewBox="-60 -60 120 120">
+      <polygon points="0,-56 14,-18 54,-14 22,8 34,48 0,24 -34,48 -22,8 -54,-14 -14,-18" fill="#14532d"/>
+      <polygon points="0,-40 10,-12 38,-10 16,6 24,34 0,18 -24,34 -16,6 -38,-10 -10,-12" fill="#166534"/>
+      <polygon points="0,-22 6,-6 22,-6 9,4 14,20 0,10 -14,20 -9,4 -22,-6 -6,-6" fill="#15803d"/>
+      <g fill="#ffffff" opacity=".85"><circle cx="0" cy="-48" r="5"/><circle cx="44" cy="-13" r="5"/><circle cx="-44" cy="-13" r="5"/>
+        <circle cx="28" cy="38" r="5"/><circle cx="-28" cy="38" r="5"/><circle cx="6" cy="-4" r="4"/></g>
+    </symbol>
+    <!-- Beach umbrella from above -->
+    <symbol id="umbrella" viewBox="-60 -60 120 120">
+      <circle r="56" fill="#f8fafc"/>
+      <path d="M0 0 L0 -56 A56 56 0 0 1 39.6 -39.6 Z M0 0 L56 0 A56 56 0 0 1 39.6 39.6 Z M0 0 L0 56 A56 56 0 0 1 -39.6 39.6 Z M0 0 L-56 0 A56 56 0 0 1 -39.6 -39.6 Z" fill="var(--c1, #ef4444)"/>
+      <circle r="56" fill="none" stroke="rgba(0,0,0,.15)" stroke-width="3"/>
+      <circle r="5" fill="#78350f"/>
+    </symbol>
     <symbol id="palm" viewBox="-50 -50 100 100">
       <g fill="#2f855a"><ellipse rx="44" ry="10"/><ellipse rx="44" ry="10" transform="rotate(45)"/>
         <ellipse rx="44" ry="10" transform="rotate(90)"/><ellipse rx="44" ry="10" transform="rotate(135)"/></g>
@@ -390,20 +541,8 @@
         <ellipse rx="34" ry="8" transform="rotate(112)"/><ellipse rx="34" ry="8" transform="rotate(157)"/></g>
       <circle r="11" fill="#8b5a2b" stroke="#6b3f1d" stroke-width="3"/>
     </symbol>
-    <symbol id="cocktail-table" viewBox="-30 -30 60 60">
-      <circle r="26" fill="#2a1a12"/><circle r="22" fill="#4a2e1c"/>
-      <circle cx="-8" cy="-5" r="5" fill="#fef3c7" stroke="#b45309"/><circle cx="7" cy="4" r="5" fill="#fecaca" stroke="#b91c1c"/>
-    </symbol>
-
-    <!-- Drawn bodies (front view), neck at the top centre; the face photo sits on top.
-         Colours come from --c1 / --c2 / --tie / --skin set on each person. -->
-    <symbol id="b-casual" viewBox="0 0 60 150">
-      <path d="M18 92 L16 142 H27 L30 102 L33 142 H44 L42 92 Z" fill="var(--c2, #2b4c7e)"/>
-      <path d="M13 142 h15 v6 h-17 z M32 142 h15 v6 h-15 z" fill="#1c1917"/>
-      <rect x="25" y="24" width="10" height="14" fill="var(--skin)"/>
-      <path d="M10 68 L7 100 Q9 105 13 100 L16 70 Z M50 68 L53 100 Q51 105 47 100 L44 70 Z" fill="var(--skin)"/>
-      <path d="M9 42 Q30 30 51 42 L51 70 L44 70 L43 96 H17 L16 70 L9 70 Z" fill="var(--c1, #c0392b)"/>
-    </symbol>
+    <!-- Standing bodies (front view), neck at the top centre; a cartoon head is drawn on top.
+         Colours come from --c1 / --c2 / --c3 / --skin set on each person. -->
     <symbol id="b-dress" viewBox="0 0 60 150">
       <path d="M22 112 L21 142 H27 L28 112 Z M32 112 L33 142 H39 L38 112 Z" fill="var(--skin)"/>
       <path d="M18 142 h11 v5 h-12 z M31 142 h11 v5 h-11 z" fill="#1c1917"/>
@@ -411,95 +550,50 @@
       <path d="M16 40 Q9 43 9 60 L7 94 Q9 98 12 94 L16 62 Z M44 40 Q51 43 51 60 L53 94 Q51 98 48 94 L44 62 Z" fill="var(--skin)"/>
       <path d="M17 40 Q30 35 43 40 L44 64 L53 118 H7 L16 64 Z" fill="var(--c1, #7c3aed)"/>
     </symbol>
-    <symbol id="b-suit" viewBox="0 0 60 150">
-      <path d="M18 92 L16 142 H27 L30 102 L33 142 H44 L42 92 Z" fill="var(--c2, #1f2937)"/>
-      <path d="M13 142 h15 v6 h-17 z M32 142 h15 v6 h-15 z" fill="#0c0a09"/>
-      <rect x="25" y="24" width="10" height="14" fill="var(--skin)"/>
-      <path d="M8 44 Q30 30 52 44 L53 98 Q51 103 47 99 L44 72 L43 96 H17 L16 72 L13 99 Q9 103 7 98 Z" fill="var(--c1, #1f2937)"/>
-      <path d="M24 37 L30 60 L36 37 Z" fill="#f8fafc"/>
-      <path d="M29 40 L31 40 L32 58 L30 62 L28 58 Z" fill="var(--tie, #b91c1c)"/>
-    </symbol>
-    <symbol id="b-dealer" viewBox="0 0 60 150">
+    <!-- Tuxedo: black jacket and trousers, white shirt, satin lapels, red bow tie and white gloves -->
+    <symbol id="b-tux" viewBox="0 0 60 150">
       <path d="M18 92 L16 142 H27 L30 102 L33 142 H44 L42 92 Z" fill="#111827"/>
-      <path d="M13 142 h15 v6 h-17 z M32 142 h15 v6 h-15 z" fill="#0c0a09"/>
+      <path d="M13 142 h15 v6 h-17 z M32 142 h15 v6 h-15 z" fill="#0c0a09"/><path d="M15 143 h8 M34 143 h8" stroke="#6b7280" stroke-width="1"/>
       <rect x="25" y="24" width="10" height="14" fill="var(--skin)"/>
-      <path d="M8 44 Q30 31 52 44 L53 98 Q51 103 47 99 L44 72 L43 96 H17 L16 72 L13 99 Q9 103 7 98 Z" fill="#f8fafc"/>
-      <path d="M16 44 Q30 36 44 44 L43 96 H17 Z" fill="#111827"/>
-      <path d="M26 38 L30 58 L34 38 Z" fill="#f8fafc"/>
-      <path d="M24 38 L30 41 L36 38 L36 44 L30 41 L24 44 Z" fill="var(--tie, #dc2626)"/>
-      <circle cx="37" cy="54" r="1.6" fill="#e7c35a"/><circle cx="37" cy="64" r="1.6" fill="#e7c35a"/>
+      <path d="M8 44 Q30 30 52 44 L53 98 Q51 103 47 99 L44 72 L43 96 H17 L16 72 L13 99 Q9 103 7 98 Z" fill="#111827"/>
+      <path d="M22 37 L30 70 L38 37 Z" fill="#f8fafc"/>
+      <path d="M22 37 L30 70 L25 41 Z M38 37 L30 70 L35 41 Z" fill="#374151"/>
+      <path d="M23 37 L30 40 L37 37 L37 44 L30 41 L23 44 Z" fill="#b91c1c"/>
+      <circle cx="30" cy="52" r="1.4" fill="#111827"/><circle cx="30" cy="60" r="1.4" fill="#111827"/>
+      <rect x="39" y="48" width="7" height="3" fill="#fde68a"/>
+      <circle cx="9.5" cy="100" r="4.5" fill="#f8fafc"/><circle cx="50.5" cy="100" r="4.5" fill="#f8fafc"/>
     </symbol>
-    <symbol id="b-waitress" viewBox="0 0 70 150">
-      <path d="M22 112 L21 142 H27 L28 112 Z M32 112 L33 142 H39 L38 112 Z" fill="var(--skin)"/>
-      <path d="M18 142 h11 v5 h-12 z M31 142 h11 v5 h-11 z" fill="#1c1917"/>
+    <!-- Puffer coat, ski trousers and boots -->
+    <symbol id="b-coat" viewBox="0 0 60 150">
+      <path d="M18 98 L16 140 H27 L30 106 L33 140 H44 L42 98 Z" fill="var(--c2, #1f2937)"/>
+      <path d="M12 136 h17 v12 h-19 z M31 136 h17 v12 h-17 z" fill="#3f2a1d"/>
+      <rect x="25" y="24" width="10" height="12" fill="var(--skin)"/>
+      <path d="M8 42 Q30 28 52 42 L55 100 Q52 106 47 101 L45 74 L45 102 H15 L15 74 L13 101 Q8 106 5 100 Z" fill="var(--c1, #dc2626)"/>
+      <path d="M15 56 H45 M15 70 H45 M15 84 H45 M9 62 L13 62 M47 62 L51 62" stroke="rgba(0,0,0,.18)" stroke-width="2"/>
+      <path d="M30 40 V102" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>
+      <circle cx="6.5" cy="101" r="4.5" fill="#1f2937"/><circle cx="53.5" cy="101" r="4.5" fill="#1f2937"/>
+      <path d="M21 36 Q30 44 39 36 L39 31 Q30 38 21 31 Z" fill="var(--c3, #f8fafc)"/>
+    </symbol>
+    <!-- Tank top, shorts and sandals -->
+    <symbol id="b-beach" viewBox="0 0 60 150">
+      <path d="M19 96 L17 140 H26 L30 108 L34 140 H43 L41 96 Z" fill="var(--skin)"/>
+      <path d="M15 140 h12 v4 h-13 z M33 140 h12 v4 h-12 z" fill="#92400e"/>
       <rect x="25" y="24" width="10" height="16" fill="var(--skin)"/>
-      <path d="M16 42 Q9 45 9 62 L7 94 Q9 98 12 94 L16 64 Z" fill="var(--skin)"/>
-      <path d="M44 44 Q52 40 55 26 L58 27 Q57 44 46 56 Z" fill="var(--skin)"/>
-      <path d="M17 40 Q30 35 43 40 L44 64 L50 116 H10 L16 64 Z" fill="#111827"/>
-      <path d="M22 70 H38 L41 106 H19 Z" fill="#f8fafc"/>
-      <ellipse cx="56" cy="24" rx="13" ry="3.5" fill="#d1d5db" stroke="#6b7280"/>
-      <path d="M50 21 L49 12 H54 L53 21 Z" fill="#fde68a"/><path d="M58 21 L57 10 H62 L61 21 Z" fill="#fecaca"/>
+      <path d="M16 42 Q9 45 9 62 L7 94 Q9 98 12 94 L16 64 Z M44 42 Q51 45 51 62 L53 94 Q51 98 48 94 L44 64 Z" fill="var(--skin)"/>
+      <path d="M16 82 H44 L45 108 H33 L30 98 L27 108 H15 Z" fill="var(--c2, #0ea5e9)"/>
+      <path d="M18 40 Q30 36 42 40 L44 86 H16 Z" fill="var(--c1, #f97316)"/>
     </symbol>
-    <symbol id="b-security" viewBox="0 0 60 150">
-      <path d="M17 92 L15 142 H27 L30 102 L33 142 H45 L43 92 Z" fill="#0b0f19"/>
-      <path d="M12 142 h16 v6 h-18 z M32 142 h16 v6 h-16 z" fill="#000"/>
-      <rect x="24" y="24" width="12" height="14" fill="var(--skin)"/>
-      <path d="M6 44 Q30 29 54 44 L55 92 L46 90 L43 96 H17 L14 90 L5 92 Z" fill="#0b0f19"/>
-      <path d="M24 37 L30 60 L36 37 Z" fill="#f8fafc"/><path d="M29 40 H31 L32 58 L30 62 L28 58 Z" fill="#0b0f19"/>
-      <path d="M14 88 Q30 96 46 88 L44 84 Q30 90 16 84 Z" fill="var(--skin)"/>
-      <path d="M41 26 Q46 34 40 44" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
-      <text x="30" y="78" font-size="6" font-weight="700" fill="#fbbf24" text-anchor="middle" font-family="system-ui, sans-serif">SECURITY</text>
-    </symbol>
-
-    <!-- Couch from above: backrest, arms, three seat cushions, cushions and a throw -->
-    <symbol id="couch" viewBox="0 0 300 116">
-      <rect width="300" height="116" rx="20" fill="#4f6f55"/>
-      <rect width="300" height="36" rx="18" fill="#5d7f63"/>
-      <rect y="8" width="36" height="108" rx="16" fill="#5a7a60"/>
-      <rect x="264" y="8" width="36" height="108" rx="16" fill="#5a7a60"/>
-      <rect x="40" y="36" width="70" height="72" rx="10" fill="#7fa586"/>
-      <rect x="115" y="36" width="70" height="72" rx="10" fill="#7fa586"/>
-      <rect x="190" y="36" width="70" height="72" rx="10" fill="#7fa586"/>
-      <rect x="46" y="30" width="40" height="28" rx="9" fill="#e0a43a" transform="rotate(-10 66 44)"/>
-      <rect x="214" y="30" width="40" height="28" rx="9" fill="#c2552f" transform="rotate(9 234 44)"/>
-      <path d="M150 36 H186 V108 H150 Q160 80 150 36 Z" fill="#e7dcc6" opacity=".9"/>
-    </symbol>
-    <symbol id="coffee-table" viewBox="0 0 160 90">
-      <rect width="160" height="90" rx="14" fill="#6b4226"/>
-      <rect x="8" y="8" width="144" height="74" rx="10" fill="#7d5232"/>
-      <circle cx="44" cy="44" r="11" fill="#f5f0e6" stroke="#b45309" stroke-width="3"/>
-      <rect x="84" y="24" width="48" height="36" rx="3" fill="#2563eb" transform="rotate(-8 108 42)"/>
-      <rect x="90" y="30" width="36" height="24" rx="2" fill="#dbeafe" transform="rotate(-8 108 42)"/>
-    </symbol>
-    <symbol id="floor-lamp" viewBox="-40 -40 80 80">
-      <circle r="36" fill="#f5e6c4"/><circle r="36" fill="none" stroke="#c9a46a" stroke-width="4"/><circle r="6" fill="#8a6a3a"/>
-    </symbol>
-    <symbol id="bookshelf" viewBox="0 0 60 320">
-      <rect width="60" height="320" rx="6" fill="#5b3a22"/>
-      <g id="books"></g>
+    <!-- A jacket hanging from a peg, hood up top -->
+    <symbol id="jacket" viewBox="0 0 50 72">
+      <path d="M17 6 Q25 -2 33 6 L35 14 H15 Z" fill="var(--c1)" filter="brightness(.8)"/>
+      <path d="M12 12 Q25 6 38 12 L46 58 Q44 63 40 60 L37 32 L37 70 H13 L13 32 L10 60 Q6 63 4 58 Z" fill="var(--c1)"/>
+      <path d="M13 26 H37 M13 40 H37 M13 54 H37" stroke="rgba(0,0,0,.18)" stroke-width="2"/>
+      <path d="M25 14 V70" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/>
+      <circle cx="25" cy="4" r="3" fill="#78350f"/>
     </symbol>
   </defs>
 
-  <!-- floor, a plain rug under the table, walls -->
-  <rect width="1600" height="1000" fill="url(#floorboards)"/>
-  <rect x="150" y="150" width="1300" height="730" rx="40" fill="#9c3d2c"/>
-  <rect x="170" y="170" width="1260" height="690" rx="30" fill="none" stroke="#b9553f" stroke-width="6"/>
-  <rect x="12" y="12" width="1576" height="976" fill="none" stroke="#efe4cf" stroke-width="24"/>
-  <rect x="24" y="24" width="1552" height="952" fill="none" stroke="#8a6a4a" stroke-width="3"/>
-
-  <!-- the homely bits -->
-  <use href="#couch" x="620" y="30" width="360" height="139"/>
-  <use href="#couch" x="-83" y="385" width="330" height="128" transform="rotate(90 82 449)"/>
-  <use href="#coffee-table" x="30" y="660" width="120" height="68"/>
-  <use href="#floor-lamp" x="555" y="30" width="60" height="60"/>
-  <use href="#floor-lamp" x="985" y="30" width="60" height="60"/>
-  <use href="#bookshelf" x="1520" y="260" width="50" height="270"/>
-  <use href="#palm" x="34" y="34" width="120" height="120"/>
-  <use href="#palm" x="1446" y="34" width="120" height="120"/>
-  <use href="#palm" x="34" y="846" width="120" height="120"/>
-  <use href="#palm" x="1446" y="846" width="120" height="120"/>
-  <use href="#cocktail-table" x="1450" y="600" width="90" height="90"/>
-
+  <g id="scene"></g>
   <g id="crowd"></g>
 </svg>
 <header>
@@ -895,75 +989,482 @@ paintSoundButton();
 // Browsers only allow audio after a user gesture.
 for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => sound.unlock(), { passive: true });
 
-/**
- * Guests and staff: photo faces (CC0, see public/people/CREDITS.md) on drawn bodies.
- * Nobody moves, and everyone keeps well away from our table.
+/*
+ * The room around the table. One of three scenes is picked at random on each visit:
+ * an arena with fans in the stands, inside a ski lodge in winter, or a lawn by the beach in summer.
+ * The lodge and the beach each have a few people standing about.
  */
-const FACES = {
-  // face: [width, height, skin tone for the drawn arms/neck]
-  'face-01': [121, 160, '#6b4226'], 'face-02': [148, 160, '#f1c9a5'], 'face-03': [151, 160, '#7a4a2a'],
-  'face-04': [152, 160, '#e9c1a0'], 'face-05': [148, 160, '#efc7a6'], 'face-06': [139, 160, '#f3d0b5'],
-  'face-07': [151, 160, '#e0b48f'], 'face-08': [152, 160, '#a86b45'], 'face-09': [116, 160, '#efd3bd'],
-  'face-10': [100, 160, '#f5d3bb'], 'face-11': [127, 160, '#ecc3a3'], 'face-12': [148, 160, '#6e4127'],
-  'face-13': [137, 160, '#f0cfae'], 'face-14': [162, 160, '#b27650'], 'face-15': [134, 160, '#b98260'],
-};
-(function fillBookshelf() {
-  const colors = ['#b91c1c', '#1d4ed8', '#15803d', '#ca8a04', '#7c3aed', '#0f766e', '#be185d'];
-  const books = document.getElementById('books');
-  for (let y = 8, k = 0; y < 310; y += 14, k++) {
-    const b = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    b.setAttribute('x', String(6 + (k % 3) * 2));
-    b.setAttribute('y', String(y));
-    b.setAttribute('width', String(44 - (k % 4) * 4));
-    b.setAttribute('height', '11');
-    b.setAttribute('rx', '2');
-    b.setAttribute('fill', colors[k % colors.length]);
-    books.append(b);
+const SCENES = ['arena', 'ski', 'beach'];
+// Add ?scene=ski (or beach, arena) to the address to pick one; otherwise it's random.
+const requestedScene = new URLSearchParams(location.search).get('scene');
+const SCENE = SCENES.includes(requestedScene) ? requestedScene : SCENES[Math.floor(Math.random() * SCENES.length)];
+document.body.dataset.scene = SCENE;
+
+/** Arena layout shared by the scene and its fans: a square stage with ad boards round its edge and
+ *  small stairs up to it, TV cameras, a casino hallway down the right, stands and two billboards. */
+const STAGE = { x0: 102, y0: 120, x1: 1172, y1: 835, edge: 26 };
+const STAGE_STAIRS = [
+  { side: 'left', from: 420, to: 530 },
+  { side: 'right', from: 420, to: 530 },
+  { side: 'bottom', from: 587, to: 697 },
+];
+const HALLWAY_X = 1335;
+const STAND = { rowGap: 64, seatGap: 54, aisles: [297, 945] };
+const BILLBOARDS = [
+  [716, 46, 230, 62, 'QUOKKA COLA', 'Smile in every sip', '#dc2626', '#fff'],
+  [962, 46, 230, 62, 'NIMBUS AIR', 'Fly above the clouds', '#0284c7', '#fff'],
+];
+/** TV cameras (x, y), each turned to face the table; the first rides on the end of a jib arm. */
+const CAMERAS = [[500, 162], [58, 92], [56, 770], [1190, 92], [1190, 790]];
+const JIB_BASE = [370, 26];
+/** Rectangles [x0, y0, x1, y1] for each flight of stairs, just outside the stage edge. */
+const stairRects = () => STAGE_STAIRS.map(({ side, from, to }) => {
+  const d = 40;
+  if (side === 'left') return [STAGE.x0 - d, from, STAGE.x0, to];
+  if (side === 'right') return [STAGE.x1, from, STAGE.x1 + d, to];
+  return [from, STAGE.y1, to, STAGE.y1 + d];
+});
+
+(function drawScene() {
+  const ROUND_WINDOWS = [[810, 92, 72], [1070, 92, 72]];
+  const use = (id, x, y, w, h, extra = '') => `<use href="#${id}" x="${x}" y="${y}" width="${w}" height="${h}" ${extra}/>`;
+  const scenes = {
+    arena: drawArena,
+
+    // Winter: inside a ski lodge. Two round windows in the log wall look out on snowy mountains, with
+    // jackets hanging beside them. A table of winter food stands beside the fireplace on the left.
+    ski: () => `
+      <rect width="1600" height="1000" fill="url(#parquet)"/>
+      <rect x="120" y="200" width="1065" height="625" rx="40" fill="#f5ecdc"/>
+      <rect x="120" y="200" width="1065" height="625" rx="40" fill="none" stroke="#b91c1c" stroke-width="14"/>
+      <rect x="144" y="224" width="1017" height="577" rx="28" fill="none" stroke="#b91c1c" stroke-width="4" stroke-dasharray="14 10"/>
+      <!-- the log wall, with two round windows looking out on the mountains and jackets on peg rails -->
+      <rect width="1600" height="180" fill="#7c4a2a"/>
+      <path d="${[30, 60, 90, 120, 150].map((y) => `M0 ${y} H1600`).join(' ')}" stroke="#5b3a22" stroke-width="3"/>
+      <clipPath id="portholes">${ROUND_WINDOWS.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('')}</clipPath>
+      <g clip-path="url(#portholes)">${snowyMountains()}</g>
+      ${ROUND_WINDOWS.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r + 5}" fill="none" stroke="#3f2a1d" stroke-width="12"/>
+        <circle cx="${x}" cy="${y}" r="${r + 5}" fill="none" stroke="#a16207" stroke-width="2"/>
+        <path d="M${x - r} ${y} H${x + r} M${x} ${y - r} V${y + r}" stroke="#5b3a22" stroke-width="6"/>
+        <path d="M${x - r * 0.6} ${y - r * 0.45} A${r * 0.75} ${r * 0.75} 0 0 1 ${x - r * 0.1} ${y - r * 0.72}" fill="none" stroke="#fff" stroke-width="5" opacity=".45" stroke-linecap="round"/>`).join('')}
+      <rect x="566" y="92" width="158" height="8" rx="3" fill="#3f2a1d"/><rect x="1156" y="92" width="128" height="8" rx="3" fill="#3f2a1d"/>
+      ${[[572, '#dc2626'], [624, '#2563eb'], [676, '#16a34a'], [1162, '#f59e0b'], [1218, '#7c3aed']].map(([x, c]) =>
+        use('jacket', x, 92, 46, 78, `style="--c1:${c}"`)).join('')}
+      <rect x="0" y="176" width="1600" height="14" fill="#5b3a22"/>
+      <rect x="0" y="190" width="18" height="810" fill="#5b3a22"/><rect x="1582" y="190" width="18" height="810" fill="#5b3a22"/>
+      <!-- the winter food table, then the stone fireplace below it -->
+      ${use('winter-feast', 20, 198, 92, 418)}
+      <g transform="translate(0 70)">
+        <circle cx="120" cy="660" r="170" fill="url(#fireGlow)"/>
+        <rect x="18" y="560" width="96" height="200" rx="10" fill="#78716c"/>
+        <g fill="#a8a29e" stroke="#57534e" stroke-width="2">
+          <rect x="22" y="566" width="40" height="28" rx="8"/><rect x="66" y="566" width="42" height="28" rx="8"/>
+          <rect x="22" y="726" width="44" height="28" rx="8"/><rect x="70" y="726" width="38" height="28" rx="8"/>
+          <rect x="80" y="600" width="30" height="120" rx="8"/></g>
+        <rect x="24" y="602" width="52" height="116" rx="6" fill="#1c1917"/>
+        <ellipse cx="50" cy="660" rx="22" ry="44" fill="url(#embers)"/>
+        <g stroke="#78350f" stroke-width="9" stroke-linecap="round"><path d="M34 632 L66 690"/><path d="M66 632 L34 690"/></g>
+        <path d="M50 626 q12 18 4 34 q14 -8 10 -26 q10 24 -2 44 q-12 12 -24 0 q-10 -20 12 -52 Z" fill="#fde047" opacity=".9"/>
+        <rect x="114" y="590" width="34" height="140" rx="6" fill="#d6d3d1"/>
+      </g>`,
+
+    // Summer: a small garden lawn under the table, the beach all around it, the sea along the top and a
+    // stretch of boardwalk along the bottom.
+    beach: () => `
+      <rect width="1600" height="1000" fill="url(#sand)"/>
+      <path d="M0 0 H1600 V140 Q1500 162 1400 142 T1200 144 T1000 140 T800 148 T600 138 T400 146 T200 140 T0 148 Z" fill="url(#sea)"/>
+      <path d="M0 148 Q100 132 200 140 T400 146 T600 138 T800 148 T1000 140 T1200 144 T1400 142 T1600 140" fill="none" stroke="#f8fafc" stroke-width="8" opacity=".85"/>
+      <g fill="none" stroke="#bae6fd" stroke-width="3" opacity=".7">
+        <path d="M80 40 q30 -10 60 0 M380 90 q30 -10 60 0 M760 30 q30 -10 60 0 M1120 100 q30 -10 60 0 M1450 50 q30 -10 60 0 M560 110 q30 -10 60 0 M940 70 q30 -10 60 0"/>
+      </g>
+      ${[[980, 50, 1], [1220, 96, 0.8], [760, 100, 0.7]].map(([x, y, k]) => `<g transform="translate(${x} ${y}) scale(${k})">
+        <path d="M-24 6 H24 L17 15 H-17 Z" fill="#7c2d12"/><path d="M0 4 V-30 L20 2 Z" fill="#f8fafc"/><path d="M-2 4 V-22 L-14 2 Z" fill="#fde68a"/></g>`).join('')}
+      <!-- the lawn, edged with a low hedge, with a wooden patio and planters for the table -->
+      <rect x="95" y="205" width="1110" height="595" rx="110" fill="url(#lawn)"/>
+      <rect x="95" y="205" width="1110" height="595" rx="110" fill="none" stroke="#3f7d2a" stroke-width="16"/>
+      <rect x="95" y="205" width="1110" height="595" rx="110" fill="none" stroke="#5fa83f" stroke-width="6" stroke-dasharray="3 9" stroke-linecap="round"/>
+      <!-- a wooden patio under the table -->
+      <rect x="124" y="218" width="1052" height="568" rx="70" fill="#7c5634"/>
+      <rect x="130" y="222" width="1040" height="556" rx="66" fill="url(#patio)"/>
+      ${[[178, 262], [1122, 262], [182, 742], [1118, 742]].map(([fx, fy]) => `<g transform="translate(${fx} ${fy})"><rect x="-38" y="-22" width="76" height="44" rx="6" fill="#7c4a2a"/><rect x="-32" y="-16" width="64" height="32" rx="4" fill="#5b3a22"/>
+        ${[[-20, -4, '#f472b6'], [-6, 6, '#facc15'], [8, -6, '#f8fafc'], [20, 4, '#ef4444'], [0, -10, '#a855f7']].map(([dx, dy, c]) =>
+          `<circle cx="${dx}" cy="${dy}" r="6" fill="${c}"/><circle cx="${dx}" cy="${dy}" r="2.2" fill="#f59e0b"/>`).join('')}</g>`).join('')}
+      <!-- on the sand: an umbrella, a surfboard, a sandcastle, a ball, a bucket and a cooler -->
+      ${use('umbrella', 290, 150, 56, 56, 'style="--c1:#ef4444"')}
+      <g transform="translate(528 180) rotate(90)"><ellipse rx="16" ry="62" fill="#fde047" stroke="#ca8a04" stroke-width="3"/><path d="M0 -58 V58" stroke="#ef4444" stroke-width="4"/></g>
+      <g transform="translate(620 180)"><rect x="-24" y="-8" width="48" height="16" fill="#e0b56a"/>
+        <rect x="-24" y="-18" width="10" height="10" fill="#e0b56a"/><rect x="-5" y="-22" width="10" height="14" fill="#e0b56a"/><rect x="14" y="-18" width="10" height="10" fill="#e0b56a"/>
+        <path d="M0 -22 V-34 L9 -30 L0 -27" stroke="#78350f" stroke-width="1.5" fill="#ef4444"/></g>
+      <g transform="translate(78 700)"><circle r="20" fill="#f8fafc"/><path d="M0 -20 A20 20 0 0 1 17.3 10 L0 0 Z" fill="#ef4444"/>
+        <path d="M17.3 10 A20 20 0 0 1 -17.3 10 L0 0 Z" fill="#3b82f6"/><path d="M-17.3 10 A20 20 0 0 1 0 -20 L0 0 Z" fill="#facc15"/></g>
+      <g transform="translate(24 742)"><path d="M-14 -14 H14 L10 16 H-10 Z" fill="#f97316"/><path d="M-8 -14 Q0 -30 8 -14" fill="none" stroke="#c2410c" stroke-width="2"/>
+        <rect x="18" y="-20" width="5" height="34" rx="2" fill="#2563eb" transform="rotate(20)"/></g>
+      <g transform="translate(1240 650)"><rect x="-30" y="-20" width="60" height="40" rx="8" fill="#2563eb"/><rect x="-30" y="-20" width="60" height="13" rx="6" fill="#f8fafc"/></g>
+      ${use('umbrella', 0, 240, 92, 92, 'style="--c1:#f59e0b"')}${use('umbrella', 1214, 222, 70, 70, 'style="--c1:#0ea5e9"')}
+      ${use('palm', -10, 470, 110, 110)}${use('palm', 1222, 690, 100, 100)}
+      <!-- a stretch of boardwalk along the bottom, with a rail on the beach side -->
+      <rect x="0" y="820" width="1600" height="180" fill="#b98352"/>
+      <path d="${Array.from({ length: 54 }, (_, k) => `M${k * 30} 820 V1000`).join(' ')}" stroke="#8a5a32" stroke-width="2"/>
+      <rect x="0" y="814" width="1600" height="8" fill="#7c4a2a"/>
+      <g fill="#5b3a22">${Array.from({ length: 21 }, (_, k) => `<rect x="${k * 80}" y="806" width="10" height="18" rx="2"/>`).join('')}</g>`,
+  };
+  $('scene').innerHTML = scenes[SCENE]();
+
+  /** The view out of the lodge windows: sky, snowy mountains, pines and falling snow. */
+  function snowyMountains() {
+    const peak = (x, top, half, color) => {
+      const capY = top + (180 - top) * 0.32;
+      const capHalf = half * 0.32;
+      return `<polygon points="${x - half},180 ${x},${top} ${x + half},180" fill="${color}"/>
+        <polygon points="${x - capHalf},${capY} ${x},${top} ${x + capHalf},${capY} ${x + capHalf * 0.4},${capY - 8} ${x},${capY + 4} ${x - capHalf * 0.45},${capY - 6}" fill="#f8fafc"/>`;
+    };
+    return `<rect width="1600" height="180" fill="#bfdbfe"/>
+      ${[[150, 40, 260], [520, 24, 300], [900, 46, 260], [1250, 18, 320], [1560, 50, 240]].map(([x, t, h]) => peak(x, t, h, '#94a3b8')).join('')}
+      ${[[320, 70, 220], [720, 60, 240], [1080, 80, 220], [1420, 66, 230]].map(([x, t, h]) => peak(x, t, h, '#64748b')).join('')}
+      <path d="M0 150 Q200 132 400 146 T800 142 T1200 148 T1600 140 V180 H0 Z" fill="#f8fafc"/>
+      ${[60, 230, 410, 800, 990, 1330, 1480].map((x, k) => `<use href="#pine" x="${x}" y="${120 + (k % 3) * 8}" width="${46 + (k % 2) * 12}" height="${46 + (k % 2) * 12}"/>`).join('')}
+      <g fill="#fff">${Array.from({ length: 70 }, (_, k) => `<circle cx="${(k * 137) % 1600}" cy="${(k * 53) % 170 + 4}" r="${1.5 + (k % 3)}"/>`).join('')}</g>
+      <rect width="1600" height="180" fill="#e0f2fe" opacity=".18"/>
+      <path d="M90 10 L170 170 M130 10 L210 170 M820 10 L900 170 M860 10 L940 170 M1340 10 L1420 170" stroke="#fff" stroke-width="7" opacity=".3"/>`;
+  }
+
+  /** The arena: a square stage under the lights, ad boards, stairs, TV cameras, stands and a casino hallway. */
+  function drawArena() {
+    const ADS = [
+      ['QUOKKA COLA', '#dc2626', '#fff'], ['BYTEBURGER', '#f59e0b', '#1f2937'], ['NIMBUS AIR', '#0284c7', '#fff'],
+      ['PIXEL PIZZA', '#ea580c', '#fff'], ['KANGA BANK', '#15803d', '#fff'], ['LUMEN MOBILE', '#7c3aed', '#fff'],
+      ['ZIPPY RIDES', '#facc15', '#1f2937'], ['ACME CHIPS', '#1d4ed8', '#fff'], ['MOONBEAM TV', '#db2777', '#fff'],
+      ['WOMBAT WIFI', '#0f766e', '#fff'],
+    ];
+    const { x0, y0, x1, y1, edge } = STAGE;
+    const font = 'font-family="system-ui, sans-serif" font-weight="800" letter-spacing="2"';
+
+    // Ad boards run along each edge of the stage, broken where the stairs come up.
+    const runs = [];
+    const gapsOn = (side) => STAGE_STAIRS.filter((st) => st.side === side).map((st) => [st.from, st.to]);
+    const split = (lo, hi, gaps) => {
+      const out = [];
+      let at = lo;
+      for (const [a, b] of gaps.sort((p, q) => p[0] - q[0])) { out.push([at, a]); at = b; }
+      out.push([at, hi]);
+      return out;
+    };
+    for (const [a, b] of split(x0 + edge, x1 - edge, gapsOn('top'))) runs.push({ horizontal: true, y: y0, a, b, pieces: Math.round((b - a) / 260) || 1 });
+    for (const [a, b] of split(x0 + edge, x1 - edge, gapsOn('bottom'))) runs.push({ horizontal: true, y: y1 - edge, a, b, pieces: Math.round((b - a) / 260) || 1 });
+    for (const [a, b] of split(y0 + edge, y1 - edge, gapsOn('left'))) runs.push({ horizontal: false, x: x0, a, b, pieces: 1 });
+    for (const [a, b] of split(y0 + edge, y1 - edge, gapsOn('right'))) runs.push({ horizontal: false, x: x1 - edge, a, b, pieces: 1 });
+    let n = 0;
+    const boards = runs.flatMap((run) => Array.from({ length: run.pieces }, (_, k) => {
+      const [name, bg, ink] = ADS[n++ % ADS.length];
+      const len = (run.b - run.a) / run.pieces;
+      const start = run.a + k * len + 2;
+      const [bx, by, bw, bh] = run.horizontal ? [start, run.y, len - 4, edge] : [run.x, start, edge, len - 4];
+      const [tx, ty] = [bx + bw / 2, by + bh / 2];
+      const turn = run.horizontal ? '' : `transform="rotate(${run.x < 600 ? -90 : 90} ${tx} ${ty})"`;
+      return `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="3" fill="${bg}"/>
+        <text x="${tx}" y="${ty}" ${turn} ${font} font-size="15" fill="${ink}" text-anchor="middle" dominant-baseline="central">${name}</text>`;
+    })).join('');
+
+    // Three small steps up to each gap in the boards; lighter towards the top.
+    const stairs = STAGE_STAIRS.map((st, k) => {
+      const [sx0, sy0, sx1, sy1] = stairRects()[k];
+      const shades = ['#475569', '#64748b', '#94a3b8'];
+      const vertical = st.side !== 'bottom';
+      return shades.map((c, i) => {
+        // i = 0 is the bottom step, furthest from the stage
+        if (!vertical) { const h = (sy1 - sy0) / 3; return `<rect x="${sx0}" y="${sy1 - (i + 1) * h}" width="${sx1 - sx0}" height="${h}" fill="${c}" stroke="#1e293b"/>`; }
+        const w = (sx1 - sx0) / 3;
+        const x = st.side === 'left' ? sx0 + i * w : sx1 - (i + 1) * w;
+        return `<rect x="${x}" y="${sy0}" width="${w}" height="${sy1 - sy0}" fill="${c}" stroke="#1e293b"/>`;
+      }).join('') + (vertical
+        ? `<path d="M${sx0} ${sy0} H${sx1} M${sx0} ${sy1} H${sx1}" stroke="#facc15" stroke-width="4"/>`
+        : `<path d="M${sx0} ${sy0} V${sy1} M${sx1} ${sy0} V${sy1}" stroke="#facc15" stroke-width="4"/>`)
+        + (vertical ? '' : `<rect x="${sx0}" y="${y1 - edge}" width="${sx1 - sx0}" height="${edge}" fill="#1e3a5f"/>`)
+        + (vertical ? `<rect x="${st.side === 'left' ? x0 : x1 - edge}" y="${sy0}" width="${edge}" height="${sy1 - sy0}" fill="#1e3a5f"/>` : '');
+    }).join('');
+
+    const posts = [[x0, y0], [x1 - edge, y0], [x0, y1 - edge], [x1 - edge, y1 - edge]].map(([px, py]) =>
+      `<rect x="${px}" y="${py}" width="${edge}" height="${edge}" fill="#0f172a"/><circle cx="${px + edge / 2}" cy="${py + edge / 2}" r="5" fill="#fde68a"/>`).join('');
+
+    // TV cameras turned to face the middle of the table, the first on a jib arm, plus a LIVE sign.
+    const [tableX, tableY] = [640, 477];
+    const [jx, jy] = JIB_BASE;
+    const [cx0, cy0] = CAMERAS[0];
+    const jib = `<path d="M${jx - (cx0 - jx) * 0.3} ${jy - (cy0 - jy) * 0.3} L${cx0} ${cy0}" stroke="#334155" stroke-width="12" stroke-linecap="round"/>
+      <path d="M${jx - (cx0 - jx) * 0.3} ${jy - (cy0 - jy) * 0.3} L${cx0} ${cy0}" stroke="#94a3b8" stroke-width="3" stroke-dasharray="10 8"/>
+      <circle cx="${jx}" cy="${jy}" r="16" fill="#1f2937" stroke="#64748b" stroke-width="4"/>
+      <rect x="${jx - (cx0 - jx) * 0.3 - 14}" y="${jy - (cy0 - jy) * 0.3 - 14}" width="28" height="28" rx="4" fill="#475569"/>`;
+    const cameras = CAMERAS.map(([x, y]) => {
+      const angle = (Math.atan2(tableY - y, tableX - x) * 180) / Math.PI;
+      return `<use href="#tv-camera" transform="translate(${x} ${y}) rotate(${angle.toFixed(1)})"/>`;
+    }).join('');
+    const live = `<g transform="translate(140 158)"><rect width="198" height="30" rx="6" fill="#dc2626"/>
+      <circle cx="17" cy="15" r="6" fill="#fff"/><text x="30" y="20" ${font} font-size="14" fill="#fff">LIVE · CLI LAN TV</text></g>`;
+
+    const billboard = (x, y, w, h, name, slogan, bg, ink) => `<g>
+      <rect x="${x + w / 2 - 6}" y="${y + h}" width="12" height="16" fill="#334155"/>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="#0f172a"/>
+      <rect x="${x + 5}" y="${y + 5}" width="${w - 10}" height="${h - 10}" rx="4" fill="${bg}"/>
+      <text x="${x + w / 2}" y="${y + h * 0.48}" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="900" font-size="${h * 0.34}" fill="${ink}">${name}</text>
+      <text x="${x + w / 2}" y="${y + h * 0.8}" text-anchor="middle" font-family="system-ui, sans-serif" font-style="italic" font-size="${h * 0.17}" fill="${ink}">${slogan}</text></g>`;
+
+    let tiers = '';
+    for (let row = 0; row * STAND.rowGap < 1000; row++) {
+      tiers += `<rect x="0" y="${row * STAND.rowGap}" width="${HALLWAY_X}" height="${STAND.rowGap}" fill="${row % 2 ? '#26334a' : '#2e3d57'}"/>
+        <rect x="0" y="${row * STAND.rowGap + STAND.rowGap - 6}" width="${HALLWAY_X}" height="6" fill="#1b2638"/>`;
+    }
+    const aisles = STAND.aisles.map((x) => `<rect x="${x - 18}" y="0" width="36" height="1000" fill="#475569"/>
+      <path d="${Array.from({ length: 32 }, (_, k) => `M${x - 18} ${k * 32} h36`).join(' ')}" stroke="#334155" stroke-width="3"/>`).join('');
+
+    // The casino hallway down the right: patterned carpet, slot machines along both walls, warm lights.
+    const H = HALLWAY_X;
+    const slotColors = ['#7c3aed', '#dc2626', '#0f766e', '#1d4ed8', '#be185d', '#b45309'];
+    const doorway = STAGE_STAIRS.find((st) => st.side === 'right');
+    const slots = [];
+    for (let y = 150, k = 0; y < 990; y += 96, k++) {
+      if (!(y + 90 < doorway.from - 10 || y > doorway.to + 10)) continue;
+      slots.push(`<use href="#slot" x="${H + 12}" y="${y}" width="62" height="85" style="--c1:${slotColors[k % slotColors.length]}"/>`);
+      slots.push(`<use href="#slot" x="${1590 - 70}" y="${y}" width="62" height="85" style="--c1:${slotColors[(k + 3) % slotColors.length]}"/>`);
+    }
+    const hallway = `<rect x="${H}" y="0" width="${1600 - H}" height="1000" fill="url(#casinoCarpet)"/>
+      ${[200, 330, 460, 590, 720, 850].map((y) => `<circle cx="${(H + 1600) / 2}" cy="${y}" r="70" fill="url(#lampGlow)"/><circle cx="${(H + 1600) / 2}" cy="${y}" r="9" fill="#fef3c7" stroke="#d97706" stroke-width="3"/>`).join('')}
+      ${slots.join('')}
+      <rect x="${H - 6}" y="0" width="12" height="${doorway.from}" fill="#3b0a0a"/><rect x="${H - 6}" y="${doorway.to}" width="12" height="${1000 - doorway.to}" fill="#3b0a0a"/>
+      <path d="M${H} 0 V${doorway.from} M${H} ${doorway.to} V1000" stroke="#f59e0b" stroke-width="2"/>
+      <rect x="1590" y="0" width="10" height="1000" fill="#3b0a0a"/>
+      <g transform="translate(${H + 22} 64)"><rect width="${1580 - H - 22}" height="50" rx="10" fill="#111827" stroke="#f59e0b" stroke-width="3"/>
+        <text x="${(1580 - H - 22) / 2}" y="35" text-anchor="middle" font-family="Georgia, serif" font-weight="900" font-size="26" letter-spacing="6" fill="#fde047">CASINO</text></g>`;
+
+    return `${tiers}${aisles}${hallway}
+      <rect x="${x0 - 10}" y="${y0 - 10}" width="${x1 - x0 + 20}" height="${y1 - y0 + 20}" rx="6" fill="#0b1220"/>
+      <rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="url(#stageCarpet)"/>
+      <ellipse cx="${tableX}" cy="${tableY}" rx="620" ry="420" fill="url(#spotlight)"/>
+      ${boards}${posts}${stairs}${live}
+      ${BILLBOARDS.map((b) => billboard(...b)).join('')}
+      ${jib}${cameras}`;
   }
 })();
 
+/** A cartoon head: skin, hair or hat, dotted eyes, rosy cheeks and a smile. */
+function cartoonHead(cx, cy, r, look) {
+  const { skin, hair = 'short', hairColor = '#3b2a1a', hat = null, hatColor = '#dc2626', facingAway = false } = look;
+  if (facingAway) {
+    // The back of the head: ears, hair (or a bald crown) and any hat, but no face.
+    const crown = hair === 'bald' ? skin : hairColor;
+    const ears = `<circle cx="${cx - r}" cy="${cy + r * 0.1}" r="${r * 0.22}" fill="${skin}"/><circle cx="${cx + r}" cy="${cy + r * 0.1}" r="${r * 0.22}" fill="${skin}"/>`;
+    const drape = hair === 'long' ? `<path d="M${cx - r} ${cy} Q${cx - r * 1.1} ${cy + r * 1.6} ${cx} ${cy + r * 1.7} Q${cx + r * 1.1} ${cy + r * 1.6} ${cx + r} ${cy} Z" fill="${hairColor}"/>` : '';
+    const bun = hair === 'bun' ? `<circle cx="${cx}" cy="${cy - r * 0.2}" r="${r * 0.45}" fill="${hairColor}" filter="brightness(.8)"/>` : '';
+    const curls = hair === 'curly' ? [-0.6, 0, 0.6].map((dx) => `<circle cx="${cx + dx * r}" cy="${cy + r * 0.2}" r="${r * 0.4}" fill="${hairColor}" filter="brightness(.85)"/>`).join('') : '';
+    let hatTop = '';
+    if (hat === 'sunhat') {
+      hatTop = `<ellipse cx="${cx}" cy="${cy - r * 0.45}" rx="${r * 1.75}" ry="${r * 0.45}" fill="${hatColor}"/>
+        <path d="M${cx - r * 0.85} ${cy - r * 0.45} Q${cx} ${cy - r * 1.5} ${cx + r * 0.85} ${cy - r * 0.45} Z" fill="${hatColor}"/>
+        <path d="M${cx - r * 0.82} ${cy - r * 0.55} H${cx + r * 0.82}" stroke="#7c2d12" stroke-width="${r * 0.12}"/>`;
+    } else if (hat === 'cap') {
+      hatTop = `<path d="M${cx - r * 0.98} ${cy - r * 0.2} A${r} ${r} 0 0 1 ${cx + r * 0.98} ${cy - r * 0.2} Z" fill="${hatColor}"/>
+        <rect x="${cx - r * 0.3}" y="${cy - r * 0.32}" width="${r * 0.6}" height="${r * 0.22}" rx="${r * 0.08}" fill="#f8fafc" opacity=".7"/>`;
+    }
+    return `${ears}<circle cx="${cx}" cy="${cy}" r="${r}" fill="${crown}"/>${drape}${bun}${curls}${hatTop}`;
+  }
+  const back = hair === 'long'
+    ? `<path d="M${cx - r * 1.05} ${cy} Q${cx - r * 1.15} ${cy + r * 1.5} ${cx - r * 0.6} ${cy + r * 1.6} H${cx + r * 0.6} Q${cx + r * 1.15} ${cy + r * 1.5} ${cx + r * 1.05} ${cy} Z" fill="${hairColor}"/>`
+    : '';
+  const brim = hat === 'sunhat' ? `<ellipse cx="${cx}" cy="${cy - r * 0.55}" rx="${r * 1.75}" ry="${r * 0.45}" fill="${hatColor}"/>` : '';
+  const face = `<circle cx="${cx - r}" cy="${cy + r * 0.1}" r="${r * 0.22}" fill="${skin}"/><circle cx="${cx + r}" cy="${cy + r * 0.1}" r="${r * 0.22}" fill="${skin}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${skin}"/>`;
+  let top = '';
+  if (hat === 'beanie') {
+    top = `<path d="M${cx - r * 1.02} ${cy - r * 0.2} A${r * 1.02} ${r * 1.02} 0 0 1 ${cx + r * 1.02} ${cy - r * 0.2} Z" fill="${hatColor}"/>
+      <rect x="${cx - r * 1.05}" y="${cy - r * 0.42}" width="${r * 2.1}" height="${r * 0.32}" rx="${r * 0.12}" fill="#f8fafc" opacity=".9"/>
+      <circle cx="${cx}" cy="${cy - r * 1.12}" r="${r * 0.24}" fill="#f8fafc"/>`;
+  } else if (hat === 'sunhat') {
+    top = `<path d="M${cx - r * 0.85} ${cy - r * 0.5} Q${cx} ${cy - r * 1.5} ${cx + r * 0.85} ${cy - r * 0.5} Z" fill="${hatColor}"/>
+      <path d="M${cx - r * 0.82} ${cy - r * 0.62} H${cx + r * 0.82}" stroke="#7c2d12" stroke-width="${r * 0.12}"/>`;
+  } else if (hat === 'cap') {
+    top = `<path d="M${cx - r * 0.98} ${cy - r * 0.3} A${r} ${r} 0 0 1 ${cx + r * 0.98} ${cy - r * 0.3} Z" fill="${hatColor}"/>
+      <path d="M${cx + r * 0.2} ${cy - r * 0.32} H${cx + r * 1.5} Q${cx + r * 1.3} ${cy - r * 0.12} ${cx + r * 0.2} ${cy - r * 0.18} Z" fill="${hatColor}"/>`;
+  } else if (hair === 'curly') {
+    top = [-0.75, -0.4, 0, 0.4, 0.75].map((dx, i) => `<circle cx="${cx + dx * r}" cy="${cy - r * (i % 2 ? 0.95 : 0.75)}" r="${r * 0.42}" fill="${hairColor}"/>`).join('');
+  } else if (hair === 'bun') {
+    top = `<path d="M${cx - r} ${cy - r * 0.1} A${r} ${r} 0 0 1 ${cx + r} ${cy - r * 0.1} Q${cx} ${cy - r * 0.6} ${cx - r} ${cy - r * 0.1} Z" fill="${hairColor}"/>
+      <circle cx="${cx}" cy="${cy - r * 1.15}" r="${r * 0.38}" fill="${hairColor}"/>`;
+  } else if (hair === 'bald') {
+    top = `<ellipse cx="${cx - r * 0.35}" cy="${cy - r * 0.6}" rx="${r * 0.3}" ry="${r * 0.15}" fill="#fff" opacity=".45"/>`;
+  } else {
+    // short or long: a cap of hair with a fringe
+    top = `<path d="M${cx - r * 1.02} ${cy - r * 0.05} A${r * 1.02} ${r * 1.02} 0 0 1 ${cx + r * 1.02} ${cy - r * 0.05} Q${cx + r * 0.4} ${cy - r * 0.55} ${cx - r * 1.02} ${cy - r * 0.05} Z" fill="${hairColor}"/>`;
+  }
+  const features = `<circle cx="${cx - r * 0.35}" cy="${cy + r * 0.05}" r="${r * 0.11}" fill="#1f2937"/>
+    <circle cx="${cx + r * 0.35}" cy="${cy + r * 0.05}" r="${r * 0.11}" fill="#1f2937"/>
+    <circle cx="${cx - r * 0.58}" cy="${cy + r * 0.38}" r="${r * 0.16}" fill="#f9a8d4" opacity=".7"/>
+    <circle cx="${cx + r * 0.58}" cy="${cy + r * 0.38}" r="${r * 0.16}" fill="#f9a8d4" opacity=".7"/>
+    <path d="M${cx - r * 0.38} ${cy + r * 0.4} Q${cx} ${cy + r * 0.78} ${cx + r * 0.38} ${cy + r * 0.4}" fill="none" stroke="#7a2e2e" stroke-width="${r * 0.12}" stroke-linecap="round"/>`;
+  return back + brim + face + top + features;
+}
+
 (function drawCrowd() {
-  const NS = 'http://www.w3.org/2000/svg';
-  const el = (tag, attrs, parent) => {
-    const e = document.createElementNS(NS, tag);
-    for (const k in attrs) e.setAttribute(k, attrs[k]);
-    parent.append(e);
-    return e;
-  };
-  /** Feet at (x, y), `h` tall. Body colours: c1 top, c2 bottom, tie. `flip` mirrors the face only. */
-  const person = (group, face, body, x, y, height, colors = {}, flip = false) => {
-    const [fw, fh, skin] = FACES[face];
-    const h = height;
-    const unit = h / 150;
-    const bodyWidth = (body === 'b-waitress' ? 70 : 60) * unit;
-    const g = el('g', {}, $(group));
-    el('ellipse', { cx: x, cy: y, rx: 20 * unit, ry: 5 * unit, fill: 'rgba(0,0,0,.4)' }, g);
-    const u = el('use', { href: `#${body}`, x: x - 30 * unit, y: y - h, width: bodyWidth, height: h }, g);
-    u.style.setProperty('--skin', skin);
-    for (const [k, v] of Object.entries(colors)) u.style.setProperty(`--${k}`, v);
-    const headH = 0.3 * h;
-    const headW = (headH * fw) / fh;
-    // Chin rests just above the shoulders (the drawn neck starts at 0.16h, shoulders at 0.28h).
-    el('image', {
-      href: `/people/${face}.webp`, x: x - headW / 2, y: y - h + 0.265 * h - headH, width: headW, height: headH,
-      ...(flip ? { transform: `translate(${2 * x} 0) scale(-1 1)` } : {}),
-    }, g);
+  if (SCENE === 'beach') return drawBeachPeople();
+  if (SCENE !== 'arena') return drawStanding();
+  const SKINS = ['#f2c9a8', '#e0ac85', '#c68863', '#8d5b3e', '#5e3b28', '#f5d6bd', '#d6a07a'];
+  const HAIR_COLORS = ['#1f1610', '#3b2a1a', '#6b4423', '#a16207', '#e2b33c', '#7c2d12', '#d6d3d1'];
+  const HAIRSTYLES = ['short', 'long', 'curly', 'bun', 'short', 'long', 'bald'];
+  const TOPS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#f8fafc'];
+  /** A fan in a stadium seat, seat front at (x, y). Some cheer with their arms up. */
+  const fan = (x, y, i) => {
+    const seat = `<rect x="${x - 21}" y="${y - 52}" width="42" height="46" rx="8" fill="#b91c1c"/>
+      <rect x="${x - 23}" y="${y - 10}" width="46" height="10" rx="4" fill="#7f1d1d"/>`;
+    if (i % 13 === 5) return seat; // an empty seat
+    const look = { skin: SKINS[(i * 3) % SKINS.length], hair: HAIRSTYLES[(i * 5 + 1) % HAIRSTYLES.length], hairColor: HAIR_COLORS[(i * 2 + 3) % HAIR_COLORS.length] };
+    if (i % 6 === 2) Object.assign(look, { hat: 'cap', hatColor: TOPS[(i * 7) % TOPS.length] });
+    const shirt = TOPS[(i * 4) % TOPS.length];
+    const arms = i % 7 === 0
+      ? `<path d="M${x - 14} ${y - 30} L${x - 22} ${y - 62} M${x + 14} ${y - 30} L${x + 22} ${y - 62}" stroke="${look.skin}" stroke-width="6" stroke-linecap="round"/>`
+      : `<path d="M${x - 16} ${y - 28} L${x - 17} ${y - 10} M${x + 16} ${y - 28} L${x + 17} ${y - 10}" stroke="${look.skin}" stroke-width="6" stroke-linecap="round"/>`;
+    return `${seat}<rect x="${x - 4}" y="${y - 36}" width="8" height="8" fill="${look.skin}"/>
+      <path d="M${x - 17} ${y - 8} L${x - 17} ${y - 26} Q${x} ${y - 36} ${x + 17} ${y - 26} L${x + 17} ${y - 8} Z" fill="${shirt}"/>
+      ${arms}${cartoonHead(x, y - 44, 11, look)}`;
   };
 
-  // Friends and a couple of hosts around the edges of the room, well away from the table.
-  person('crowd', 'face-02', 'b-waitress', 330, 176, 150);
-  person('crowd', 'face-09', 'b-casual', 1180, 172, 150, { c1: '#b45309', c2: '#374151' }, true);
-  person('crowd', 'face-11', 'b-casual', 1260, 180, 152, { c1: '#65a30d', c2: '#1f2937' }, true);
-  person('crowd', 'face-12', 'b-dress', 520, 186, 126, { c1: '#f59e0b' });
-  person('crowd', 'face-06', 'b-dress', 1080, 186, 126, { c1: '#0ea5e9' }, true);
-  person('crowd', 'face-03', 'b-casual', 205, 300, 140, { c1: '#ec4899', c2: '#1e3a8a' });
-  person('crowd', 'face-15', 'b-casual', 205, 660, 142, { c1: '#0ea5e9', c2: '#334155' });
-  person('crowd', 'face-05', 'b-dress', 110, 900, 150, { c1: '#16a34a' }, true);
-  person('crowd', 'face-08', 'b-casual', 230, 930, 150, { c1: '#f97316', c2: '#1f2937' });
-  person('crowd', 'face-04', 'b-suit', 1300, 930, 150, { c1: '#334155', c2: '#1e293b', tie: '#e11d48' }, true);
-  person('crowd', 'face-14', 'b-dress', 1400, 910, 150, { c1: '#a855f7' });
-  person('crowd', 'face-10', 'b-waitress', 1500, 620, 150, {}, true);
+  // Fill the stands row by row (back rows first), leaving the stage, stairs, cameras, aisles and billboards clear.
+  let html = '';
+  let i = 0;
+  for (let row = 0; row * STAND.rowGap < 1000; row++) {
+    const y = (row + 1) * STAND.rowGap - 6;
+    for (let x = STAND.seatGap / 2; x < 1600; x += STAND.seatGap) {
+      i++;
+      const [l, t, r, b] = [x - 23, y - 62, x + 23, y];
+      const hits = ([ax, ay, bx, by]) => l < bx && r > ax && t < by && b > ay;
+      if (r > HALLWAY_X - 8) continue;
+      if (hits([STAGE.x0 - 14, STAGE.y0 - 14, STAGE.x1 + 14, STAGE.y1 + 14])) continue;
+      if (stairRects().some(hits)) continue;
+      if (CAMERAS.some(([camX, camY]) => hits([camX - 45, camY - 40, camX + 55, camY + 40]))) continue;
+      if (hits([JIB_BASE[0] - 70, 0, JIB_BASE[0] + 30, JIB_BASE[1] + 40])) continue;
+      if (STAND.aisles.some((a) => Math.abs(a - x) < 34)) continue;
+      if (BILLBOARDS.some(([bx, by, bw, bh]) => x + 22 > bx && x - 22 < bx + bw && y - 62 < by + bh + 16 && y > by)) continue;
+      html += fan(x, y, i);
+    }
+  }
+  // The dealer, in a tux, standing still at the middle of the far side of the table.
+  html += standingFigure({ at: [640, 232, 150], body: 'b-tux', skin: '#f2c9a8', hair: 'short', hairColor: '#1f1610', c1: '#111827' });
+  $('crowd').innerHTML = html;
 })();
+
+/** A person standing, feet at (x, y), h tall, in a body from the defs with a cartoon head. */
+function standingFigure({ at: [x, y, h], body = 'b-coat', c1, c2 = '#1f2937', c3 = '#f8fafc', ...look }) {
+  const unit = h / 150;
+  const top = y - h;
+  return `<g><ellipse cx="${x}" cy="${y}" rx="${20 * unit}" ry="${5 * unit}" fill="rgba(0,0,0,.35)"/>
+    <use href="#${body}" x="${x - 30 * unit}" y="${top}" width="${60 * unit}" height="${h}" style="--skin:${look.skin};--c1:${c1};--c2:${c2};--c3:${c3}"/>
+    ${cartoonHead(x, top + 0.095 * h, 0.12 * h, look)}</g>`;
+}
+
+/** Ski lodge: two people standing about and three more eating at the dining table. */
+function drawStanding() {
+  const PEOPLE = {
+    ski: [
+      // by the food table and warming up by the fire; three more eat at the dining table (drawDiners)
+      { at: [150, 330, 140], skin: '#f2c9a8', hair: 'long', hairColor: '#a16207', hat: 'beanie', hatColor: '#dc2626', c1: '#2563eb', c2: '#1f2937', c3: '#f8fafc' },
+      { at: [182, 810, 145], skin: '#8d5b3e', hair: 'curly', hairColor: '#1f1610', c1: '#16a34a', c2: '#334155', c3: '#facc15' },
+    ],
+  };
+  $('crowd').innerHTML = PEOPLE[SCENE].map(standingFigure).join('') + drawDiners();
+}
+
+/**
+ * The lodge's round dining table on the right, seen from above like the poker table. Three people eat
+ * round it with plates of mushrooms and hot drinks; two chairs are free. Angles are in degrees, 0 = east.
+ */
+function drawDiners() {
+  const [cx, cy, r] = [1300, 480, 58];
+  const DINERS = [
+    [180, '#ec4899', { skin: '#f5d6bd', hair: '#7c2d12' }],
+    [245, '#f97316', { skin: '#e0ac85', hat: '#7c3aed' }],
+    [115, '#dc2626', { skin: '#c68863', hat: '#0f766e' }],
+  ];
+  const EMPTY = [330, 30];
+  const around = (deg, dist) => [cx + dist * Math.cos((deg * Math.PI) / 180), cy + dist * Math.sin((deg * Math.PI) / 180)];
+  const chair = `<rect x="-32" y="-22" width="12" height="44" rx="5" fill="#5b3a22"/><rect x="-24" y="-20" width="32" height="40" rx="6" fill="#a16207"/>`;
+  /** A diner seen from above, turned to face the middle of the table. */
+  const diner = (deg, shirt, look) => {
+    const [x, y] = around(deg, r + 24);
+    return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${deg + 180})">${chair}
+      <ellipse cx="-6" cy="0" rx="13" ry="22" fill="${shirt}"/>
+      <path d="M-2 -16 L18 -10 M-2 16 L18 10" stroke="${look.skin}" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="20" cy="-10" r="4" fill="${look.skin}"/><circle cx="20" cy="10" r="4" fill="${look.skin}"/>
+      <path d="M21 10 L30 6" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="5" cy="0" r="2.6" fill="${look.skin}"/><circle cx="-4" cy="0" r="12" fill="${look.skin}"/>
+      ${look.hat
+        ? `<circle cx="-6" cy="0" r="11.5" fill="${look.hat}"/><path d="M1 -10 A12 12 0 0 1 1 10" fill="none" stroke="#f8fafc" stroke-width="4"/><circle cx="-8" cy="0" r="3.5" fill="#f8fafc"/>`
+        : `<path d="M-4 -12 A12 12 0 0 0 -4 12 A7 12 0 0 1 -4 -12 Z" fill="${look.hair}"/>`}</g>`;
+  };
+  const emptyChair = (deg) => {
+    const [x, y] = around(deg, r + 24);
+    return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${deg + 180})">${chair}</g>`;
+  };
+  const setting = (deg) => {
+    const [px, py] = around(deg, r - 20);
+    const [mx, my] = around(deg - 32, r - 14);
+    return `<circle cx="${px}" cy="${py}" r="13" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+      <use href="#mushroom" x="${px - 4}" y="${py - 4}"/><use href="#mushroom" x="${px + 4}" y="${py + 2}"/><circle cx="${px - 3}" cy="${py + 6}" r="3" fill="#16a34a"/>
+      <use href="#coffee-mug" transform="translate(${mx} ${my}) scale(.8)"/><use href="#steam" transform="translate(${mx} ${my - 10}) scale(.8)"/>`;
+  };
+  return `${EMPTY.map(emptyChair).join('')}
+    <circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="#5b3a22"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="#8b5a2b"/>
+    <circle cx="${cx}" cy="${cy}" r="${r - 6}" fill="none" stroke="#a16f42" stroke-width="2"/>
+    ${DINERS.map(([deg]) => setting(deg)).join('')}
+    <g transform="translate(${cx + 12} ${cy - 4})"><circle r="15" fill="#78350f"/><circle r="11" fill="#a16207"/>
+      <use href="#mushroom" x="-4" y="-4"/><use href="#mushroom" x="4" y="-1"/><use href="#mushroom" x="0" y="5"/></g>
+    <g transform="translate(${cx + 14} ${cy + 28}) rotate(-30)"><ellipse rx="9" ry="17" fill="#d97706"/><path d="M-5 -9 L5 -6 M-5 -1 L5 2 M-5 7 L5 10" stroke="#92400e" stroke-width="2"/></g>
+    <circle cx="${cx + 16}" cy="${cy - 30}" r="14" fill="url(#lampGlow)"/><circle cx="${cx + 16}" cy="${cy - 30}" r="5" fill="#fef3c7"/>
+    ${DINERS.map(([deg, shirt, look]) => diner(deg, shirt, look)).join('')}`;
+}
+
+/**
+ * Beach: a few people standing on the sand and three beach chairs on the right (two taken), all facing
+ * the sea, and more people strolling along the boardwalk at the bottom.
+ */
+function drawBeachPeople() {
+  /**
+   * A striped deck chair turned to face the sea, so we see it from behind: the canvas back, the sitter's
+   * head above it and their arms on the armrests. Without a person it's just the chair with a towel over it.
+   */
+  const deckChair = (x, y, [canvas, stripe], person) => {
+    const frame = `<path d="M${x - 26} ${y + 18} L${x - 20} ${y - 62} M${x + 26} ${y + 18} L${x + 20} ${y - 62}" stroke="#a16207" stroke-width="5" stroke-linecap="round"/>
+      <rect x="${x - 30}" y="${y - 30}" width="8" height="5" rx="2" fill="#a16207"/><rect x="${x + 22}" y="${y - 30}" width="8" height="5" rx="2" fill="#a16207"/>`;
+    const back = `<path d="M${x - 21} ${y - 58} H${x + 21} L${x + 24} ${y} H${x - 24} Z" fill="${canvas}"/>
+      <path d="M${x - 8} ${y - 58} L${x - 9} ${y} M${x + 8} ${y - 58} L${x + 9} ${y}" stroke="${stripe}" stroke-width="8"/>`;
+    if (!person) return frame + back + `<path d="M${x - 14} ${y - 60} h28 v34 l-6 6 h-16 l-6 -6 z" fill="#f8fafc" opacity=".9"/>`;
+    const { skin, c1, ...look } = person;
+    return `${frame}
+      <path d="M${x - 18} ${y - 50} Q${x} ${y - 62} ${x + 18} ${y - 50} V${y - 30} H${x - 18} Z" fill="${c1}"/>
+      ${cartoonHead(x, y - 64, 11, { skin, ...look, facingAway: true })}
+      ${back}
+      <path d="M${x - 21} ${y - 48} L${x - 27} ${y - 30} M${x + 21} ${y - 48} L${x + 27} ${y - 30}" stroke="${skin}" stroke-width="6" stroke-linecap="round"/>`;
+  };
+  // On the sand everyone looks out to sea, so we see their backs.
+  const onTheSand = [
+    { at: [720, 200, 128], body: 'b-beach', skin: '#e0ac85', hair: 'short', hairColor: '#3b2a1a', hat: 'cap', hatColor: '#ef4444', c1: '#facc15', c2: '#0ea5e9' },
+    { at: [845, 198, 124], body: 'b-dress', skin: '#f2c9a8', hair: 'long', hairColor: '#e2b33c', hat: 'sunhat', hatColor: '#fde68a', c1: '#ec4899' },
+    { at: [1090, 202, 128], body: 'b-beach', skin: '#5e3b28', hair: 'curly', hairColor: '#1f1610', c1: '#22c55e', c2: '#f97316' },
+    { at: [52, 455, 140], body: 'b-dress', skin: '#c68863', hair: 'bun', hairColor: '#1f1610', c1: '#14b8a6' },
+  ];
+  // The boardwalk is busier: people strolling in both directions, a little smaller as it's further off.
+  const SKINS = ['#f2c9a8', '#8d5b3e', '#e0ac85', '#5e3b28', '#f5d6bd', '#c68863', '#d6a07a', '#f2c9a8', '#8d5b3e', '#e0ac85', '#5e3b28'];
+  const HAIRS = ['long', 'short', 'curly', 'bun', 'bald', 'short', 'long', 'curly', 'short', 'bun', 'long'];
+  const TOPS = ['#ef4444', '#3b82f6', '#f59e0b', '#a855f7', '#14b8a6', '#ec4899', '#22c55e', '#f97316', '#0ea5e9', '#facc15', '#64748b'];
+  const onTheBoardwalk = [40, 150, 270, 400, 520, 650, 780, 900, 1030, 1160, 1260].map((x, k) => ({
+    at: [x + (k % 2 ? 12 : 0), 902 - (k % 3) * 8, 100 + (k % 3) * 5],
+    body: k % 3 === 1 ? 'b-dress' : 'b-beach',
+    skin: SKINS[k], hair: HAIRS[k], hairColor: ['#1f1610', '#a16207', '#3b2a1a', '#7c2d12', '#e2b33c'][k % 5],
+    ...(k % 4 === 0 ? { hat: 'sunhat', hatColor: '#fde68a' } : k % 4 === 2 ? { hat: 'cap', hatColor: TOPS[(k + 4) % TOPS.length] } : {}),
+    c1: TOPS[k], c2: ['#1e3a8a', '#0f766e', '#f8fafc', '#1f2937'][k % 4],
+  }));
+  $('crowd').innerHTML = onTheSand.map((p) => standingFigure({ ...p, facingAway: true })).join('')
+    + deckChair(1242, 360, ['#ef4444', '#fff'], { skin: '#f5d6bd', hair: 'bald', hat: 'sunhat', hatColor: '#fde68a', c1: '#3b82f6', c2: '#f8fafc' })
+    + deckChair(1242, 470, ['#0ea5e9', '#fff'], { skin: '#8d5b3e', hair: 'curly', hairColor: '#1f1610', c1: '#facc15', c2: '#1e3a8a' })
+    + deckChair(1242, 580, ['#22c55e', '#fff'])
+    + onTheBoardwalk.sort((a, b) => a.at[1] - b.at[1]).map(standingFigure).join('');
+}
 
 /** Marquee bulbs around the logo's diamond. */
 (function lightLogo() {
@@ -1241,20 +1742,7 @@ function render(v) {
   lastPot = v.pot;
   $('banner').hidden = true;
 
-  const log = $('log');
-  log.replaceChildren(...v.log.map((line) => {
-    const d = document.createElement('div');
-    if (isWinLine(line)) {
-      d.className = 'win';
-      d.innerHTML = TROPHY(14);
-      d.append(line);
-    } else {
-      d.textContent = line;
-      if (line.startsWith('──')) d.className = 'sep';
-    }
-    return d;
-  }));
-  log.scrollTop = log.scrollHeight;
+  renderLog(v.log);
 
   renderControls(v);
   renderOverlay(v);
@@ -1355,6 +1843,46 @@ function toggleMyCards() {
   try { localStorage.setItem('hideCards', hideMyCards ? 'on' : 'off'); } catch { /* not persisted */ }
   if (view) render(view);
 }
+
+/**
+ * Hand history: only new lines are added, and it scrolls down to them, so nothing flickers.
+ * The server sends the latest lines each update; we find where they overlap what's on screen.
+ */
+let shownLog = [];
+function renderLog(lines) {
+  const log = $('log');
+  let overlap = Math.min(shownLog.length, lines.length);
+  while (overlap > 0 && !sameLines(shownLog.slice(shownLog.length - overlap), lines.slice(0, overlap))) overlap--;
+  if (overlap === 0 && shownLog.length) {
+    // Nothing in common (e.g. after reconnecting): start the list over.
+    log.replaceChildren();
+    shownLog = [];
+  }
+  const fresh = lines.slice(overlap);
+  if (!fresh.length) return;
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+  for (const line of fresh) {
+    const d = document.createElement('div');
+    if (isWinLine(line)) {
+      d.className = 'win';
+      d.innerHTML = TROPHY(14);
+      d.append(line);
+    } else {
+      d.textContent = line;
+      if (line.startsWith('──')) d.className = 'sep';
+    }
+    log.append(d);
+  }
+  shownLog = shownLog.concat(fresh);
+  // Keep the last 200 lines on screen.
+  while (log.children.length > 200) {
+    log.firstElementChild.remove();
+    shownLog.shift();
+  }
+  // Follow new lines unless you've scrolled up to read older ones.
+  if (atBottom) log.scrollTo({ top: log.scrollHeight, behavior: reducedMotion() ? 'auto' : 'smooth' });
+}
+const sameLines = (a, b) => a.length === b.length && a.every((line, i) => line === b[i]);
 
 function describeHand(h) {
   return h.pots.map((p) => {

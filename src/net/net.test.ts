@@ -32,12 +32,9 @@ describe('WebServer', () => {
     assert.equal(page.status, 200);
     assert.match(await page.text(), /CLI LAN Poker/);
 
-    // Crowd cutouts are served; nothing outside that allow-list is.
+    // Only the page itself is served: no files from disk.
     const origin = new URL(url).origin;
-    const img = await fetch(`${origin}/people/face-01.webp`);
-    assert.equal(img.status, 200);
-    assert.equal(img.headers.get('content-type'), 'image/webp');
-    for (const path of ['/people/CREDITS.md', '/people/../package.json', '/people/%2e%2e/package.json', '/package.json']) {
+    for (const path of ['/people/face-01.webp', '/../package.json', '/%2e%2e/package.json', '/package.json']) {
       assert.equal((await fetch(origin + path)).status, 404, path);
     }
 

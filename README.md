@@ -1,6 +1,6 @@
 # poker-lan-cli
 
-No-limit Texas Hold'em in your terminal, built with [Ink](https://github.com/vadimdemedes/ink). Every game also opens a browser GUI on `localhost` that mirrors the table and lets you act from there. The GUI shows the table from above in a cosy lounge, with couches, guests and hosts, chip and card animations, sound effects, and a cartoon avatar in sunglasses for every player.
+No-limit Texas Hold'em in your terminal, built with [Ink](https://github.com/vadimdemedes/ink). Every game also opens a browser GUI on `localhost` that mirrors the table and lets you act from there. The GUI shows the table from above in one of three scenes, picked at random each time you open it (a live-TV arena with a square stage, cameras, cheering fans, sponsor billboards and a casino hallway; a ski lodge with a fireplace and round windows onto snowy mountains; or a little garden lawn on the beach with deck chairs and a busy boardwalk). It also has chip and card animations, sound effects, and a cartoon avatar in sunglasses for every player.
 
 - **Single Player** — you against 4 bots that decide with equity, pot odds and hand ranges
 - **Host** — run a table other people on your LAN can join, plus up to 4 bots. Progress is saved so you can resume unfinished games
@@ -131,4 +131,4 @@ Any problems or want to contribute? Contact ww-developer@protonmail.com
 
 ## License
 
-MIT for the code. The faces in `public/people/` are cropped from CC0 photos on Wikimedia Commons; the bodies are drawn. See [public/people/CREDITS.md](public/people/CREDITS.md) for each source and photographer.
+MIT

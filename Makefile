@@ -22,7 +22,7 @@ else
 endif
 
 SOURCES := $(shell find src -name '*.ts' -o -name '*.tsx' | grep -v '/generated/') \
-           public/index.html $(wildcard public/people/*.webp) package.json
+           public/index.html package.json
 
 .PHONY: all build install uninstall release clean
 
@@ -34,7 +34,7 @@ node_modules: package.json
 	$(INSTALL)
 	@touch node_modules
 
-src/generated/assets.ts: public/index.html $(wildcard public/people/*.webp) package.json scripts/embed-assets.mjs
+src/generated/assets.ts: public/index.html package.json scripts/embed-assets.mjs
 	$(BUN) scripts/embed-assets.mjs
 
 bin/poker-lan: node_modules src/generated/assets.ts $(SOURCES) scripts/compile.ts
