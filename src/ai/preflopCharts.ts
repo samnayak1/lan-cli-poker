@@ -24,6 +24,17 @@ const rankValue = (c: string): number => {
 const rankChar = (value: number): string => RANK_ORDER[value - 2]!;
 
 /** Every hand class a single range token stands for. */
+
+/*
+A token is one comma-separated piece of a range string. In "TT+, A2s+, A5s:0.5, KQo", the tokens are TT+, A2s+, A5s (the :0.5 means "play it half the time") and KQo. 
+A kicker is the second, lower card that goes with your top card. In A5, the 5 is the kicker. It matters when two players share the same top card: AK beats A5 because the K kicker is higher.
+Pattern	Example	Expands to
+pairPlus	TT+	that pair and every bigger pair: TT, JJ, QQ, KK, AA
+pairSpan	22-44	the pairs from 22 to 44: 22, 33, 44
+pair	77	just 77
+kickerPlus	A2s+	same top card, with the kicker going up to one below it: A2s, A3s, … AKs
+kickerSpan	K7s-K9s	same top card, kickers in that range: K7s, K8s, K9s
+*/
 function expandToken(token: string): string[] {
   const pairPlus = /^([2-9TJQKA])\1\+$/.exec(token);
   if (pairPlus) {

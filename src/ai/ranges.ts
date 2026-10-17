@@ -18,6 +18,13 @@ function byRank(first: Card, second: Card): [Card, Card] {
 }
 
 /** The 169-way class of a starting hand, e.g. "AKs", "T9o", "77". */
+
+/* 
+
+The higher card always comes first.
+A pair is just the two letters, like 77.
+Otherwise it adds s if both cards are the same suit, like AKs, or o if they aren't, like AKo.
+*/
 export function handClass(first: Card, second: Card): string {
   const [high, low] = byRank(first, second);
   const ranks = high.rankChar + low.rankChar;
